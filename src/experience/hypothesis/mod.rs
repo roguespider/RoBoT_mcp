@@ -1,4 +1,4 @@
-// robot/src/experience/hypothesis.rs
+// robot/src/experience/hypothesis/mod.rs
 
 //! ============================================================================
 //! HYPOTHESIS ENGINE
@@ -15,18 +15,20 @@
 //!
 //! This module acts as the public interface for the entire hypothesis subsystem.
 
-pub mod hypothesis;
+pub mod core;
+pub mod services;
+pub mod support;
 
-pub use hypothesis::analytics::*;
-pub use hypothesis::evaluator::*;
-pub use hypothesis::evidence::*;
-pub use hypothesis::generator::*;
-pub use hypothesis::hypothesis::*;
-pub use hypothesis::lifecycle::*;
-pub use hypothesis::matcher::*;
-pub use hypothesis::repository::*;
-pub use hypothesis::statistics::*;
-pub use hypothesis::validator::*;
+pub use core::evaluator::*;
+pub use core::evidence::*;
+pub use core::hypothesis::*;
+pub use core::lifecycle::*;
+pub use services::analytics::*;
+pub use services::generator::*;
+pub use services::matcher::*;
+pub use services::repository::*;
+pub use services::validator::*;
+pub use support::statistics::*;
 
 use anyhow::Result;
 
@@ -90,4 +92,3 @@ impl Default for HypothesisEngine {
         Self::new()
     }
 }
-

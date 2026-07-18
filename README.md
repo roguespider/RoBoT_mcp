@@ -285,11 +285,11 @@ src/
 │   │   ├── attempt.rs          ✅
 │   │   ├── finding.rs          ✅
 │   │   └── store.rs            ✅
-│   ├── hypothesis.rs           ✅ Yes Core data structures
 │   └── hypothesis/             ✅
+│        ├── mod.rs             ✅ Hypothesis engine entry point (moved from hypothesis.rs)
 │        ├── core/              ✅
-│        │   ├── mod.rs         ✅define what hypothesis is
-│        │   ├── hypothesis.rs  ✅ Public API and coordinator
+│        │   ├── mod.rs         ✅ Define what hypothesis is
+│        │   ├── hypothesis.rs  ✅ Core data structures (Hypothesis + HypothesisId)
 │        │   ├── evidence.rs    ✅ Evidence models
 │        │   ├── evaluator.rs   ✅ Confidence updates and evaluation logic
 │        │   └── lifecycle.rs   ✅ State transitions
@@ -298,7 +298,7 @@ src/
 │        │   ├── repository.rs  ✅ Storage interface similar to Experience/Reputation
 │        │   ├── analytics.rs   🟡 Statistics and trend reporting are straightforward
 │        │   ├── generator.rs   🟡 Basic pattern detection; smarter generation comes later
-│        │   ├── matcher.rs     🟡 bridge between incoming experiences and existing beliefs
+│        │   ├── matcher.rs     🟡 Bridge between incoming experiences and existing beliefs
 │        │   └── validator.rs   🟡 Contradiction checks can start simple
 │        └── support/           ⚠️
 │             ├── mod.rs        ⚠️
@@ -393,7 +393,7 @@ cargo build
 
 ## Known Issues
 
-- **3 compilation errors in `main.rs`**: `init_logging()` not defined, `App` type undeclared, `Result<()>` needs 2 generic params
+- **`encounter_recorder.rs`: unclosed delimiter** — Line 11 has `pub fn record(` without a closing `)`, causing a compilation error
 - **No MCP tools exposed** — The server runs but has zero tools for Zed to call
 - **`bus.rs` is empty** — Only a commented-out publish line. The event bus pattern is designed but not implemented
 - **`queue.rs` is in-memory only** — No SQLite persistence for jobs yet
