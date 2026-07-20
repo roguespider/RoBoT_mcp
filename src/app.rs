@@ -12,6 +12,7 @@ use crate::experience::metrics::MetricsCollector;
 use crate::experience::reflection::ReflectionEngine;
 use crate::experience::scheduler::{Scheduler, TaskSchedule, TaskType};
 use crate::experience::scorer::ExperienceScorer;
+use crate::learning::{WorkingMemory, LineageTracker};
 use crate::bridge::mcp::McpContext;
 use crate::bridge::rmcp::run_stdio_server;
 use crate::tools;
@@ -49,6 +50,12 @@ pub struct App {
 
     /// MCP context shared with bridge.
     mcp_context: Arc<McpContext>,
+
+    /// Working memory for short-term memory items.
+    working_memory: Arc<WorkingMemory>,
+
+    /// Lineage tracker for memory relationships.
+    lineage_tracker: Arc<LineageTracker>,
 }
 
 
@@ -67,6 +74,10 @@ impl App {
         // Create learning engines
         let reflection_engine = Arc::new(ReflectionEngine::new());
         let evolution_engine = Arc::new(EvolutionEngine::new());
+        
+        // Create working memory and lineage tracker
+        let working_memory = Arc::new(WorkingMemory::new());
+        let lineage_tracker = Arc::new(LineageTracker::new());
         
         // Create scheduler with background tasks
         let scheduler = Self::setup_scheduler(database.clone()).await?;
@@ -99,6 +110,8 @@ impl App {
             scheduler,
             metrics,
             mcp_context,
+            working_memory,
+            lineage_tracker,
         })
     }
 
