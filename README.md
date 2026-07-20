@@ -3,7 +3,7 @@
 
 A Rust MCP (Model Context Protocol) server for Zed Editor — an AI agent with persistent memory, experience-based learning, and structured knowledge storage.
 
-> **Status:** v0.1 scaffolding — database layer is solid and migrations are wired up, experience system backbone exists but references modules that don't exist yet. Zero MCP tools exposed. This is the foundation, not the product.
+> **Status:** v0.2 in progress — database layer is solid, experience system is largely implemented, reflection services complete, MCP bridge with RMCP/MCP/ACP protocols added. Foundation is stabilizing.
 
 ---
 
@@ -158,6 +158,8 @@ avoid_high_cost_failures = true
 | `code` | Code snippets and patterns |
 | `decision` | Decision records |
 | `event` | System events |
+| `encounter` | Recorded encounters from interactions |
+| `experience` | Full experience records with context |
 
 ---
 
@@ -296,17 +298,28 @@ src/
 │        ├── services/          ✅
 │        │   ├── mod.rs         ✅
 │        │   ├── repository.rs  ✅ Storage interface similar to Experience/Reputation
-│        │   ├── analytics.rs   🟡 Statistics and trend reporting are straightforward
-│        │   ├── generator.rs   🟡 Basic pattern detection; smarter generation comes later
-│        │   ├── matcher.rs     🟡 Bridge between incoming experiences and existing beliefs
-│        │   └── validator.rs   🟡 Contradiction checks can start simple
+│        │   ├── analytics.rs   ✅ Statistics and trend reporting
+│        │   ├── generator.rs   ✅ Basic pattern detection and generation
+│        │   ├── matcher.rs     ✅ Bridge between experiences and beliefs
+│        │   └── validator.rs   ✅ Contradiction checks and validation
 │        └── support/           ⚠️
 │             ├── mod.rs        ⚠️
-│             ├── statistics.rs 🟡 Mostly counters and summaries
-│             ├── graph.rs      ⚠️ ⬅ placeholder Depends on a broader knowledge graph design
-│             ├── simulation.rs ⚠️ ⬅ placeholder Requires planning/reasoning capabilities
-│             └── planner.rs    ⚠️ ⬅ placeholder Depends on goals and decision-making systems
-│   ├── reflection.rs           ❌
+│             ├── statistics.rs ✅ Mostly counters and summaries
+│             ├── graph.rs      ⚠️ ⬅ placeholder Depends on broader knowledge graph design
+│             ├── simulation.rs ⚠️ ⬅ placeholder Requires planning/reasoning
+│             └── planner.rs    ⚠️ ⬅ placeholder Depends on goals and decision-making
+│   ├── reflection/             ✅
+│   │   ├── mod.rs             ✅ Reflection module root
+│   │   ├── reflection.rs      ✅ Core Reflection struct and methods
+│   │   ├── insight.rs         ✅ Insight types for reusable knowledge
+│   │   ├── pattern.rs         ✅ Pattern detection and management
+│   │   ├── review.rs          ✅ Reflection review types
+│   │   └── services/          ✅
+│   │       ├── mod.rs         ✅ Services module
+│   │       ├── analyzer.rs    ✅ ReflectionAnalyzer for analyzing experiences
+│   │       ├── generator.rs   ✅ ReflectionGenerator for creating reflections
+│   │       ├── repository.rs  ✅ Thread-safe in-memory reflection repository
+│   │       └── validator.rs   ✅ ReflectionValidator for quality checks
 │   ├── evolution.rs            ❌
 │   ├── metrics.rs              ❌
 │   └── scheduler.rs            ❌
@@ -358,10 +371,10 @@ src/
 ### Build
 
 ```bash
-cargo build
+cargo build --features rusqlite/bundled
 ```
 
-> **Note:** The project does not currently compile. See Known Issues below.
+> **Note:** Project compiles successfully. The `rusqlite/bundled` feature includes bundled SQLite for easier builds.
 
 ---
 
@@ -373,31 +386,36 @@ cargo build
 | Experience types/events | ✅ Complete | Full type system for experiences, scores, reputation, event payloads |
 | Observer pattern | ✅ Implemented | Trait defined with priority and filter hooks |
 | Job queue + worker | ✅ Implemented | In-memory queue with async worker (mpsc channel) |
-| Event bus | ❌ Stub | Only a commented-out publish line in `bus.rs` |
-| Experience coordinator | ⚠️ Partial | Pipeline logic written; all sub-modules exist but reflection/evolution are stubbed |
-| Experience recorder | ⚠️ Partial | Record/success/failure methods work but reference missing `ExperienceQueries` type |
-| MCP server (`app.rs`) | ❌ Stubbed | App struct defined but McpServer type doesn't exist yet |
-| Main entry point | ❌ Stubbed | References `init_logging()` which isn't implemented; uses undeclared `App` type |
+| Event bus | ⚠️ Partial | Basic structure exists, needs full channel integration |
+| Experience coordinator | ✅ Implemented | Pipeline logic with all sub-modules wired up |
+| Experience recorder | ✅ Implemented | Record/success/failure methods working with database |
+| Experience repository | ✅ Implemented | Full CRUD for encounters and experiences |
+| Reflection system | ✅ Complete | Core types, services (analyzer, generator, repository, validator), patterns |
+| Hypothesis system | ✅ Implemented | Core hypothesis with evidence, evaluation, lifecycle, and services |
+| Exploration system | ✅ Implemented | Exploration tracking with repository |
+| Reputation system | ✅ Implemented | Full reputation tracking with decay and analytics |
+| MCP bridge | ✅ Implemented | RMCP, MCP, and ACP protocol implementations |
+| App entry point | ✅ Implemented | App struct with coordinator and stdio server |
+| Main entry point | ✅ Implemented | init_logging() and App::new().run() working |
 
 ---
 
 ## Immediate Next Steps
 
-1. **Create `ExperienceQueries`** — `recorder.rs` imports this from `database::queries` but it doesn't exist yet. Add the experience-specific query functions there.
-2. **Implement MCP server** — Define the `McpServer` type in `app.rs` using the `rmcp` crate, register tools, handle stdio transport
-3. **Wire event bus** — Replace the stub in `bus.rs` with a working publisher that connects the recorder to the observer queue via channels
-4. **Implement reflection & evolution engines** — Stubbed observers need actual logic
-5. **Fix main.rs** — Add `init_logging()`, import/define `App`, fix `Result<()>` return type
+1. **Implement MCP tools** — Register actual tools for Zed Editor to call
+2. **Wire event bus fully** — Connect bus to observer queue via channels
+3. **Implement evolution engine** — Transform insights into behavioral changes
+4. **Add metrics collection** — Track performance and learning metrics
+5. **Implement scheduler** — Background job scheduling for learning tasks
 
 ---
 
 ## Known Issues
 
-- **`encounter_recorder.rs`: unclosed delimiter** — Line 11 has `pub fn record(` without a closing `)`, causing a compilation error
-- **No MCP tools exposed** — The server runs but has zero tools for Zed to call
-- **`bus.rs` is empty** — Only a commented-out publish line. The event bus pattern is designed but not implemented
-- **`queue.rs` is in-memory only** — No SQLite persistence for jobs yet
-- **No `observer.rs` export** — `experience/mod.rs` only exports `coordinator`, so the observer module can't be used externally
+- **Event bus is minimal** — Basic publish/subscribe exists but full channel integration pending
+- **Queue is in-memory only** — No SQLite persistence for jobs yet
+- **Evolution system is stub** — Insight-to-behavior transformation not yet implemented
+- **MCP tools not exposed** — Server runs but specific tools for Zed need implementation
 
 ## ⚖️ License & Fair-Pay Rule
 
