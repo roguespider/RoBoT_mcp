@@ -21,3 +21,6 @@ pub mod behavior;
 pub mod engine;
 pub mod evidence;
 
+// Re-exports
+pub use engine::EvolutionEngine;
+

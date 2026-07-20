@@ -1,8 +1,18 @@
 // src/bridge/mcp.rs
 // MCP (Model Context Protocol) core types and traits
 
+use std::sync::Arc;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+
+use crate::database::sqlite::SqliteDatabase;
+use crate::experience::bus::ExperienceBus;
+use crate::experience::coordinator::ExperienceCoordinator;
+use crate::experience::evolution::EvolutionEngine;
+use crate::experience::metrics::MetricsCollector;
+use crate::experience::reflection::ReflectionEngine;
+use crate::experience::scheduler::Scheduler;
 
 /// MCP protocol version
 pub const MCP_VERSION: &str = "2024-11-05";
@@ -142,17 +152,57 @@ pub trait McpHandler: Send + Sync {
 }
 
 /// McpBridge context shared across handlers
+#[allow(dead_code)]
 pub struct McpContext {
+    /// Database layer
+    pub database: Arc<SqliteDatabase>,
+    
+    /// Event bus
+    pub bus: Arc<ExperienceBus>,
+    
+    /// Experience coordinator
+    pub coordinator: Arc<ExperienceCoordinator>,
+    
+    /// Reflection engine
+    pub reflection: Arc<ReflectionEngine>,
+    
+    /// Evolution engine
+    pub evolution: Arc<EvolutionEngine>,
+    
+    /// Background scheduler
+    pub scheduler: Arc<Scheduler>,
+    
+    /// Metrics collector
+    pub metrics: Arc<MetricsCollector>,
+    
+    /// Server info
     pub server_info: McpServerInfo,
+    
+    /// Server capabilities
     pub capabilities: McpCapabilities,
 }
 
 impl McpContext {
-    pub fn new(name: &str, version: &str) -> Self {
+    pub fn new(
+        database: Arc<SqliteDatabase>,
+        bus: Arc<ExperienceBus>,
+        coordinator: Arc<ExperienceCoordinator>,
+        reflection: Arc<ReflectionEngine>,
+        evolution: Arc<EvolutionEngine>,
+        scheduler: Arc<Scheduler>,
+        metrics: Arc<MetricsCollector>,
+    ) -> Self {
         Self {
+            database,
+            bus,
+            coordinator,
+            reflection,
+            evolution,
+            scheduler,
+            metrics,
             server_info: McpServerInfo {
-                name: name.to_string(),
-                version: version.to_string(),
+                name: env!("CARGO_PKG_NAME").to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
             },
             capabilities: McpCapabilities {
                 tools: Some(McpEmpty),

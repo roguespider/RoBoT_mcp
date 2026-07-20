@@ -339,6 +339,24 @@ impl Scheduler {
             total_failures,
         }
     }
+
+    /// Run the scheduler background loop
+    pub async fn run(self: Arc<Self>) -> Result<()> {
+        tracing::info!("Scheduler started");
+        
+        loop {
+            // Check for due tasks every 30 seconds
+            tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+            
+            let due_tasks = self.get_due_tasks().await;
+            
+            for task in due_tasks {
+                if let Err(e) = self.execute_task(&task.id).await {
+                    tracing::error!("Failed to execute task {}: {}", task.id, e);
+                }
+            }
+        }
+    }
 }
 
 impl Default for Scheduler {

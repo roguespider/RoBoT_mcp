@@ -42,6 +42,7 @@ pub mod services;
 
 // Re-export from submodules
 pub use reflection::Reflection;
+pub use engine::ReflectionEngine;
 
 /// ============================================================================
 /// Reflection Types
