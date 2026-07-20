@@ -12,7 +12,7 @@ use crate::database::queries;
 use crate::database::sqlite::SqliteDatabase;
 
 /// Tool: Store a new memory
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct StoreMemoryInput {
     pub content: String,
     pub memory_type: String,
@@ -22,20 +22,20 @@ pub struct StoreMemoryInput {
 }
 
 /// Tool: Search memories
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct SearchMemoryInput {
     pub query: String,
     pub limit: Option<usize>,
 }
 
 /// Tool: Get a specific memory
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GetMemoryInput {
     pub id: String,
 }
 
 /// Tool: List recent memories
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ListMemoriesInput {
     pub memory_type: Option<String>,
     pub limit: Option<usize>,

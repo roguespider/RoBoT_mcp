@@ -10,7 +10,7 @@ use crate::database::queries;
 use crate::database::sqlite::SqliteDatabase;
 
 /// Tool: Full-text search across all data
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GlobalSearchInput {
     pub query: String,
     pub types: Option<Vec<String>>,
@@ -18,14 +18,14 @@ pub struct GlobalSearchInput {
 }
 
 /// Tool: Get recommendations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GetRecommendationsInput {
     pub context: Option<String>,
     pub limit: Option<usize>,
 }
 
 /// Tool: Get reputation for a target
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GetReputationInput {
     pub target: String,
 }

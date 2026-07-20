@@ -69,7 +69,7 @@ impl App {
         let evolution_engine = Arc::new(EvolutionEngine::new());
         
         // Create scheduler with background tasks
-        let scheduler = Self::setup_scheduler().await?;
+        let scheduler = Self::setup_scheduler(database.clone()).await?;
         
         // Create metrics collector
         let metrics = Arc::new(MetricsCollector::new());
@@ -103,8 +103,8 @@ impl App {
     }
 
     /// Setup background task scheduler with default tasks.
-    async fn setup_scheduler() -> Result<Arc<Scheduler>> {
-        let scheduler = Arc::new(Scheduler::new());
+    async fn setup_scheduler(database: Arc<SqliteDatabase>) -> Result<Arc<Scheduler>> {
+        let scheduler = Arc::new(Scheduler::new(database));
         
         // Schedule periodic reflection (every 30 minutes)
         scheduler.create_task(

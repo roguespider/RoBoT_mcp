@@ -14,7 +14,7 @@ use crate::experience::coordinator::ExperienceCoordinator;
 use crate::experience::types::{Experience, ExperienceContext, ExperienceOutcome, ExperienceType};
 
 /// Tool: Record an experience
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct RecordExperienceInput {
     pub title: String,
     pub description: String,
@@ -24,20 +24,20 @@ pub struct RecordExperienceInput {
 }
 
 /// Tool: Get experience statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GetExperienceStatsInput {
     pub period: Option<String>,
 }
 
 /// Tool: List recent experiences
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ListExperiencesInput {
     pub experience_type: Option<String>,
     pub limit: Option<usize>,
 }
 
 /// Tool: Get an experience by ID
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct GetExperienceInput {
     pub id: String,
 }

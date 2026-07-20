@@ -1,17 +1,24 @@
 // \src\experience\encounter_recorder.rs
 
+use std::sync::Arc;
+
 use anyhow::Result;
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::database::models::MemoryCard;
+use crate::database::queries;
+use crate::database::sqlite::SqliteDatabase;
 use crate::experience::types::{Experience, ExperienceContext, ExperienceOutcome, ExperienceType, KnowledgeMaturity};
 
 /// Records experiences to storage
-pub struct ExperienceRecorder;
+pub struct ExperienceRecorder {
+    database: Arc<SqliteDatabase>,
+}
 
 impl ExperienceRecorder {
-    pub fn new() -> Self {
-        Self
+    pub fn new(database: Arc<SqliteDatabase>) -> Self {
+        Self { database }
     }
 
     /// Record a completed experience.
@@ -25,7 +32,7 @@ impl ExperienceRecorder {
     ) -> Result<String> {
         let id = Uuid::new_v4();
 
-        let _experience = Experience {
+        let experience = Experience {
             id,
             timestamp: Utc::now(),
             experience_type,
@@ -36,14 +43,18 @@ impl ExperienceRecorder {
             score: None,
             encounter_ids: Vec::new(),
             maturity: KnowledgeMaturity::Emerging,
-            confidence: 0.0,
+            confidence: 0.5,
             lessons: Vec::new(),
             evidence_count: 0,
             tags: Vec::new(),
             metadata: std::collections::HashMap::new(),
         };
 
-        // TODO: Insert into database
+        // Store in database
+        let conn = self.database.connection()?;
+        let memory = MemoryCard::from_experience(&experience);
+        queries::insert_memory(&conn, &memory)?;
+        
         tracing::info!("Recorded experience: {}", id);
 
         Ok(id.to_string())
