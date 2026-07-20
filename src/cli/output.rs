@@ -3,60 +3,48 @@
 
 use std::fmt;
 
-/// Colored output
-pub mod color {
-    use std::fmt;
+/// ANSI color codes
+pub const RESET: &str = "\x1b[0m";
+pub const BOLD: &str = "\x1b[1m";
+pub const GREEN: &str = "\x1b[32m";
+pub const RED: &str = "\x1b[31m";
+pub const YELLOW: &str = "\x1b[33m";
+pub const CYAN: &str = "\x1b[36m";
 
-    pub struct Green<T>(pub T);
-    pub struct Red<T>(pub T);
-    pub struct Yellow<T>(pub T);
-    pub struct Cyan<T>(pub T);
-    pub struct Bold<T>(pub T);
+/// Color a string green
+pub fn green(s: impl fmt::Display) -> String {
+    format!("{}{}{}", GREEN, s, RESET)
+}
 
-    impl<T: fmt::Display> fmt::Display for Green<T> {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "\x1b[32m{}\x1b[0m", self.0)
-        }
-    }
+/// Color a string red
+pub fn red(s: impl fmt::Display) -> String {
+    format!("{}{}{}", RED, s, RESET)
+}
 
-    impl<T: fmt::Display> fmt::Display for Red<T> {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "\x1b[31m{}\x1b[0m", self.0)
-        }
-    }
+/// Color a string yellow
+pub fn yellow(s: impl fmt::Display) -> String {
+    format!("{}{}{}", YELLOW, s, RESET)
+}
 
-    impl<T: fmt::Display> fmt::Display for Yellow<T> {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "\x1b[33m{}\x1b[0m", self.0)
-        }
-    }
+/// Color a string cyan
+pub fn cyan(s: impl fmt::Display) -> String {
+    format!("{}{}{}", CYAN, s, RESET)
+}
 
-    impl<T: fmt::Display> fmt::Display for Cyan<T> {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "\x1b[36m{}\x1b[0m", self.0)
-        }
-    }
-
-    impl<T: fmt::Display> fmt::Display for Bold<T> {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "\x1b[1m{}\x1b[0m", self.0)
-        }
-    }
+/// Make a string bold
+pub fn bold(s: impl fmt::Display) -> String {
+    format!("{}{}{}", BOLD, s, RESET)
 }
 
 /// Separator types for tables
 pub enum Separator {
     Line,
-    Double,
-    Dots,
 }
 
 impl fmt::Display for Separator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Separator::Line => write!(f, "─────────────────────────────────────────"),
-            Separator::Double => write!(f, "═════════════════════════════════════════"),
-            Separator::Dots => write!(f, "· · · · · · · · · · · · · · · · · · · ·"),
         }
     }
 }
@@ -93,7 +81,27 @@ macro_rules! warn {
     };
 }
 
-/// Print a table row
+/// Success function version
+pub fn success_msg(s: impl fmt::Display) {
+    println!("\x1b[32m✓\x1b[0m {}", s);
+}
+
+/// Error function version
+pub fn error_msg(s: impl fmt::Display) {
+    eprintln!("\x1b[31m✗\x1b[0m {}", s);
+}
+
+/// Info function version
+pub fn info_msg(s: impl fmt::Display) {
+    println!("\x1b[36mℹ\x1b[0m {}", s);
+}
+
+/// Warn function version
+pub fn warn_msg(s: impl fmt::Display) {
+    println!("\x1b[33m⚠\x1b[0m {}", s);
+}
+
+/// Print a table row with columns and widths
 pub fn table_row(columns: &[&str], widths: &[usize]) {
     let mut row = String::new();
     for (col, &width) in columns.iter().zip(widths.iter()) {
@@ -102,7 +110,7 @@ pub fn table_row(columns: &[&str], widths: &[usize]) {
     println!("{}", row.trim_end());
 }
 
-/// Print table headers
+/// Print table headers with separator
 pub fn table_header(columns: &[&str], widths: &[usize]) {
     table_row(columns, widths);
     let sep: String = widths.iter()
@@ -110,4 +118,26 @@ pub fn table_header(columns: &[&str], widths: &[usize]) {
         .collect::<Vec<_>>()
         .join("  ");
     println!("{}", sep);
+}
+
+/// Print a formatted section header
+pub fn section_header(title: &str) {
+    println!();
+    println!("{}", bold(title));
+    println!("{}", Separator::Line);
+}
+
+/// Print a key-value pair with formatting
+pub fn kv(key: &str, value: impl fmt::Display) {
+    println!("  {}: {}", cyan(key), value);
+}
+
+/// Print a list item
+pub fn list_item(item: &str) {
+    println!("  • {}", item);
+}
+
+/// Print a numbered list item
+pub fn numbered_item(n: usize, item: &str) {
+    println!("  {}. {}", green(n.to_string()), item);
 }

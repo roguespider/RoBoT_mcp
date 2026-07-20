@@ -2,14 +2,19 @@
 //! Database initialization command
 
 use anyhow::Result;
+use crate::cli::output;
 
 pub fn run() -> Result<()> {
-    println!("Initializing RoBoT database...");
+    output::section_header("Initializing RoBoT Database");
     
     // Initialize database
     let db = crate::database::sqlite::SqliteDatabase::initialize()?;
-    println!("✓ Database initialized successfully");
-    println!("  Location: {:?}", db.path());
+    
+    output::success_msg("Database initialized successfully");
+    output::kv("Location", format!("{:?}", db.path()));
+    
+    println!();
+    println!("{}", output::yellow("Database is ready for use"));
     
     Ok(())
 }

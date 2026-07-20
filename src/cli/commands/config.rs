@@ -2,33 +2,32 @@
 //! Configuration display command
 
 use anyhow::Result;
+use crate::cli::output;
 
 pub fn run() -> Result<()> {
-    println!("RoBoT Configuration");
-    println!("===================");
+    output::section_header("RoBoT Configuration");
+    
+    println!("{}", output::bold("Package:"));
+    output::kv("Name", env!("CARGO_PKG_NAME"));
+    output::kv("Version", env!("CARGO_PKG_VERSION"));
+    output::kv("Description", env!("CARGO_PKG_DESCRIPTION"));
     println!();
     
-    println!("Package:");
-    println!("  Name: {}", env!("CARGO_PKG_NAME"));
-    println!("  Version: {}", env!("CARGO_PKG_VERSION"));
-    println!("  Description: {}", env!("CARGO_PKG_DESCRIPTION"));
-    println!();
-    
-    println!("Database:");
+    println!("{}", output::bold("Database:"));
     if let Ok(db) = crate::database::sqlite::SqliteDatabase::initialize() {
-        println!("  ✓ Database initialized");
-        println!("  Path: {:?}", db.path());
+        output::success_msg("Database initialized");
+        output::kv("Path", format!("{:?}", db.path()));
     } else {
-        println!("  ✗ Database not initialized");
+        output::error_msg("Database not initialized");
     }
     println!();
     
-    println!("Features:");
-    println!("  ✓ Experience System");
-    println!("  ✓ Reflection Engine");
-    println!("  ✓ Learning System");
-    println!("  ✓ MCP Bridge");
-    println!("  ✓ CLI Interface");
+    println!("{}", output::bold("Features:"));
+    output::list_item(&format!("Experience System {}", output::green("✓")));
+    output::list_item(&format!("Reflection Engine {}", output::green("✓")));
+    output::list_item(&format!("Learning System {}", output::green("✓")));
+    output::list_item(&format!("MCP Bridge {}", output::green("✓")));
+    output::list_item(&format!("CLI Interface {}", output::green("✓")));
     
     Ok(())
 }

@@ -2,6 +2,7 @@
 //! Experience statistics command
 
 use anyhow::Result;
+use crate::cli::output;
 
 pub fn run() -> Result<()> {
     let db = crate::database::sqlite::SqliteDatabase::initialize()?;
@@ -24,16 +25,25 @@ pub fn run() -> Result<()> {
     
     let total = memories.len();
     let avg_confidence = if total == 0 { 0.0 } else { total_confidence / total as f32 };
+    let success_rate = if total > 0 { (success as f32 / total as f32) * 100.0 } else { 0.0 };
     
-    println!("Experience Statistics");
-    println!("{}", crate::cli::output::Separator::Line);
-    println!("Total experiences: {}", total);
-    println!("Success rate: {:.1}%", if total > 0 { (success as f32 / total as f32) * 100.0 } else { 0.0 });
-    println!("Average confidence: {:.2}", avg_confidence);
-    println!();
-    println!("Breakdown:");
-    println!("  ✓ Success: {}", success);
-    println!("  ✗ Failure: {}", failure);
+    output::section_header("Experience Statistics");
+    output::kv("Total experiences", total);
+    
+    if total == 0 {
+        output::warn_msg("No experiences recorded yet");
+    } else {
+        output::kv("Success rate", format!("{:.1}%", success_rate));
+        output::kv("Average confidence", format!("{:.2}", avg_confidence));
+        println!();
+        println!("{}", output::bold("Breakdown:"));
+        
+        // Use table for breakdown
+        let widths = [15usize, 10];
+        output::table_header(&["Type", "Count"], &widths);
+        output::table_row(&["Success", &success.to_string()], &widths);
+        output::table_row(&["Failure", &failure.to_string()], &widths);
+    }
     
     Ok(())
 }

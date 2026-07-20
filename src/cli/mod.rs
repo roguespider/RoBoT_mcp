@@ -5,6 +5,7 @@ pub mod commands;
 pub mod output;
 
 use anyhow::Result;
+use output::{section_header, bold, list_item};
 
 /// Run the CLI with the given arguments
 pub fn run() -> Result<()> {
@@ -33,7 +34,7 @@ fn cli() -> Result<()> {
             Ok(())
         }
         _ => {
-            eprintln!("Unknown command: {}", args[1]);
+            output::error_msg(format!("Unknown command: {}", args[1]));
             print_usage();
             std::process::exit(1);
         }
@@ -42,22 +43,24 @@ fn cli() -> Result<()> {
 
 /// Print CLI usage information
 fn print_usage() {
-    println!("RoBoT MCP - Command Line Interface");
+    section_header("RoBoT MCP - Command Line Interface");
+    
+    println!("{}", bold("Usage:"));
+    println!("  robot <command> [options]");
     println!();
-    println!("Usage: robot <command> [options]");
+    println!("{}", bold("Commands:"));
+    list_item("server       - Start the MCP server");
+    list_item("init         - Initialize the database");
+    list_item("status       - Check system status");
+    list_item("memory       - Memory management commands");
+    list_item("experience   - Show experience statistics");
+    list_item("config       - Show configuration");
+    list_item("migrate      - Run database migrations");
+    list_item("help         - Show this help message");
     println!();
-    println!("Commands:");
-    println!("  server       Start the MCP server");
-    println!("  init         Initialize the database");
-    println!("  status       Check system status");
-    println!("  memory       Memory management commands");
-    println!("  experience   Show experience statistics");
-    println!("  config       Show configuration");
-    println!("  migrate      Run database migrations");
-    println!("  help         Show this help message");
-    println!();
-    println!("Memory subcommands:");
-    println!("  memory list [limit]     List memories");
-    println!("  memory search <query>   Search memories");
-    println!("  memory add <content>     Add a new memory");
+    println!("{}", bold("Memory subcommands:"));
+    list_item("memory list [limit]    - List memories");
+    list_item("memory search <query>  - Search memories");
+    list_item("memory add <content>  - Add a new memory");
+    list_item("memory stats          - Show memory statistics");
 }

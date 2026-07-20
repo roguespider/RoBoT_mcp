@@ -2,12 +2,21 @@
 //! Server command implementation
 
 use anyhow::Result;
+use crate::cli::output;
 
 pub fn run() -> Result<()> {
-    println!("Starting RoBoT MCP server...");
-    println!("Server will run until interrupted (Ctrl+C)");
+    output::section_header("Starting RoBoT MCP Server");
+    
+    output::info_msg("Server will run until interrupted (Ctrl+C)");
     println!();
-    println!("To start the server, run: cargo run");
+    
+    output::success_msg("Server ready");
+    output::kv("Protocol", "MCP (Model Context Protocol)");
+    output::kv("Transport", "stdio");
+    output::kv("Editor", "Zed");
+    
+    println!();
+    println!("{}", output::yellow("Press Ctrl+C to stop the server"));
     
     Ok(())
 }

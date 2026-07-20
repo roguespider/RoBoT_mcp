@@ -17,7 +17,7 @@ pub fn run(args: &[String]) -> Result<()> {
         "add" => add_memory(args),
         "stats" => memory_stats(),
         _ => {
-            eprintln!("Unknown memory command: {}", args[0]);
+            output::error_msg(format!("Unknown memory command: {}", args[0]));
             print_memory_usage();
             std::process::exit(1);
         }
@@ -25,11 +25,11 @@ pub fn run(args: &[String]) -> Result<()> {
 }
 
 fn print_memory_usage() {
-    println!("Memory commands:");
-    println!("  memory list [limit]    List recent memories");
-    println!("  memory search <query>  Search memories");
-    println!("  memory add <content>  Add a new memory");
-    println!("  memory stats          Show memory statistics");
+    output::section_header("Memory Commands");
+    output::numbered_item(1, "memory list [limit]   - List recent memories");
+    output::numbered_item(2, "memory search <query> - Search memories");
+    output::numbered_item(3, "memory add <content>  - Add a new memory");
+    output::numbered_item(4, "memory stats           - Show memory statistics");
 }
 
 fn list_memories(args: &[String]) -> Result<()> {
@@ -42,12 +42,12 @@ fn list_memories(args: &[String]) -> Result<()> {
     
     let memories = queries::list_memories(&conn, None, limit)?;
     
-    println!("Recent Memories ({} total)", memories.len());
-    println!("{}", output::Separator::Line);
+    output::section_header(&format!("Recent Memories ({} total)", memories.len()));
     
-    for m in &memories {
-        println!("[{:?}] {}", m.memory_type, &m.content[..m.content.len().min(80)]);
-        println!("  Confidence: {:.2} | Importance: {:.2}", m.confidence, m.importance);
+    for (i, m) in memories.iter().enumerate() {
+        output::numbered_item(i + 1, &format!("[{:?}] {}", m.memory_type, &m.content[..m.content.len().min(80)]));
+        output::kv("Confidence", format!("{:.2}", m.confidence));
+        output::kv("Importance", format!("{:.2}", m.importance));
         println!();
     }
     
@@ -56,7 +56,7 @@ fn list_memories(args: &[String]) -> Result<()> {
 
 fn search_memories(args: &[String]) -> Result<()> {
     if args.len() < 2 {
-        eprintln!("Error: search requires a query");
+        output::error_msg("search requires a query");
         print_memory_usage();
         std::process::exit(1);
     }
@@ -67,12 +67,10 @@ fn search_memories(args: &[String]) -> Result<()> {
     
     let results = queries::search_memory(&conn, query, 50)?;
     
-    println!("Search results for '{}' ({} found)", query, results.len());
-    println!("{}", output::Separator::Line);
+    output::section_header(&format!("Search results for '{}' ({} found)", query, results.len()));
     
     for m in &results {
-        println!("[{:?}] {}", m.memory_type, &m.content[..m.content.len().min(80)]);
-        println!();
+        output::list_item(&format!("[{:?}] {}", m.memory_type, &m.content[..m.content.len().min(80)]));
     }
     
     Ok(())
@@ -80,7 +78,7 @@ fn search_memories(args: &[String]) -> Result<()> {
 
 fn add_memory(args: &[String]) -> Result<()> {
     if args.len() < 2 {
-        eprintln!("Error: add requires content");
+        output::error_msg("add requires content");
         print_memory_usage();
         std::process::exit(1);
     }
@@ -101,8 +99,8 @@ fn add_memory(args: &[String]) -> Result<()> {
     
     queries::insert_memory(&conn, &memory)?;
     
-    println!("✓ Memory added successfully");
-    println!("  ID: {}", memory.id);
+    output::success_msg("Memory added successfully");
+    output::kv("ID", memory.id.to_string());
     
     Ok(())
 }
@@ -123,14 +121,13 @@ fn memory_stats() -> Result<()> {
     
     let avg_confidence = if memories.is_empty() { 0.0 } else { total_confidence / memories.len() as f32 };
     
-    println!("Memory Statistics");
-    println!("{}", output::Separator::Line);
-    println!("Total memories: {}", memories.len());
-    println!("Average confidence: {:.2}", avg_confidence);
+    output::section_header("Memory Statistics");
+    output::kv("Total memories", memories.len());
+    output::kv("Average confidence", format!("{:.2}", avg_confidence));
     println!();
-    println!("By type:");
+    println!("{}", output::bold("By type:"));
     for (mem_type, count) in &by_type {
-        println!("  {}: {}", mem_type, count);
+        output::list_item(&format!("{}: {}", mem_type, count));
     }
     
     Ok(())
