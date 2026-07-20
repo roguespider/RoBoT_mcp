@@ -62,14 +62,13 @@ pub fn register_tools(context: &Arc<McpContext>) {
         .chain(ingestor::definitions::all())
         .collect();
     
-    // Update registry
-    let rt = tokio::runtime::Handle::current();
-    rt.block_on(async {
-        let mut registry = registry.write().await;
-        registry.tools = all_tools;
-    });
-    
-    tracing::info!("Total MCP tools registered: {}", registry.blocking_read().tools.len());
+    // Update registry using blocking write (safe since we have the OnceLock guard)
+    if let Ok(mut reg) = registry.try_write() {
+        reg.tools = all_tools;
+        tracing::info!("Total MCP tools registered: {}", reg.tools.len());
+    } else {
+        tracing::warn!("Could not acquire write lock on tool registry");
+    }
 }
 
 /// Get all registered tools
