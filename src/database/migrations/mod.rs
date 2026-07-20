@@ -16,45 +16,42 @@ pub fn run(database: &SqliteDatabase) -> Result<()> {
 fn run_migrations(conn: &Connection) -> Result<()> {
     create_migration_table(conn)?;
 
-    let version = current_version(conn)?;
+    let mut version = current_version(conn)?;
 
-    match version {
-        0 => {
-            migration_001_initial_memory(conn)?;
-            set_version(conn, 1)?;
+    // Run all pending migrations sequentially
+    while version < 7 {
+        match version {
+            0 => {
+                migration_001_initial_memory(conn)?;
+                version = 1;
+            }
+            1 => {
+                migration_002_add_decision_memory(conn)?;
+                version = 2;
+            }
+            2 => {
+                migration_003_add_memory_sources(conn)?;
+                version = 3;
+            }
+            3 => {
+                migration_004_add_events(conn)?;
+                version = 4;
+            }
+            4 => {
+                migration_005_add_reputations(conn)?;
+                version = 5;
+            }
+            5 => {
+                migration_006_add_scheduled_tasks(conn)?;
+                version = 6;
+            }
+            6 => {
+                migration_007_add_lineage(conn)?;
+                version = 7;
+            }
+            _ => break,
         }
-
-        1 => {
-            migration_002_add_decision_memory(conn)?;
-            set_version(conn, 2)?;
-        }
-
-        2 => {
-            migration_003_add_memory_sources(conn)?;
-            set_version(conn, 3)?;
-        }
-
-        3 => {
-            migration_004_add_events(conn)?;
-            set_version(conn, 4)?;
-        }
-
-        4 => {
-            migration_005_add_reputations(conn)?;
-            set_version(conn, 5)?;
-        }
-
-        5 => {
-            migration_006_add_scheduled_tasks(conn)?;
-            set_version(conn, 6)?;
-        }
-
-        6 => {
-            migration_007_add_lineage(conn)?;
-            set_version(conn, 7)?;
-        }
-
-        _ => {}
+        set_version(conn, version)?;
     }
 
     Ok(())
