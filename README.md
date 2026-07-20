@@ -3,7 +3,7 @@
 
 A Rust MCP (Model Context Protocol) server for Zed Editor — an AI agent with persistent memory, experience-based learning, and structured knowledge storage.
 
-> **Status:** v0.3 complete — All modules implemented including planner, skills, workflows, learning, and CLI. Database layer solid, experience system complete, reflection services complete, evolution system added, metrics and scheduler added, MCP bridge with RMCP/MCP/ACP protocols and tools implemented.
+> **Status:** v0.4 complete — All modules fully implemented including hypothesis graph, simulation, planner, planner module, skills, workflows, learning, and CLI. Database layer solid, experience system complete, reflection services complete, evolution system added, metrics and scheduler added, MCP bridge with RMCP/MCP/ACP protocols and tools implemented.
 
 ---
 
@@ -258,7 +258,7 @@ src/
 │   ├── sqlite.rs               ✅← connection + initialization
 │   ├── models.rs               ✅← database structs
 │   ├── migrations/             ✅← schema migrations module
-│   │   └── mod.rs             ✅← migration functions
+│   │   └── mod.rs              ✅← migration functions
 │   └── queries.rs              ✅← CRUD operations
 ├── experience\                 ⚠️
 │   ├── mod.rs                  ✅←                                    ├─ xp backbone
@@ -280,7 +280,7 @@ src/
 │   │   ├── mod.rs	            ✅← Exposes the reputation subsystem
 │   │   ├── reputation.rs       ✅← Core reputation state and updates
 │   │   ├── factors.rs	        ✅← Different trust dimensions
-│   │   ├── decay.rs	          ✅← Time-based reputation aging
+│   │   ├── decay.rs	        ✅← Time-based reputation aging
 │   │   ├── analytics.rs        ✅← Reports, trends, statistics
 │   │   └── repository.rs       ✅← Save/load reputation data
 │   ├── exploration/            ✅
@@ -305,29 +305,29 @@ src/
 │        │   ├── generator.rs   ✅ Basic pattern detection and generation
 │        │   ├── matcher.rs     ✅ Bridge between experiences and beliefs
 │        │   └── validator.rs   ✅ Contradiction checks and validation
-│        └── support/           ⚠️
-│             ├── mod.rs        ⚠️
+│        └── support/           ✅
+│             ├── mod.rs        ✅ Support module root
 │             ├── statistics.rs ✅ Mostly counters and summaries
-│             ├── graph.rs      ⚠️ ⬅ placeholder Depends on broader knowledge graph design
-│             ├── simulation.rs ⚠️ ⬅ placeholder Requires planning/reasoning
-│             └── planner.rs    ⚠️ ⬅ placeholder Depends on goals and decision-making
+│             ├── graph.rs      ✅ Full hypothesis graph with cycle detection, path finding, SCC
+│             ├── simulation.rs ✅ What-if reasoning system with outcome simulation
+│             └── planner.rs    ✅ Decision-support layer converting hypotheses to actions
 │   ├── reflection/             ✅
-│   │   ├── mod.rs             ✅ Reflection module root
-│   │   ├── reflection.rs      ✅ Core Reflection struct and methods
-│   │   ├── insight.rs         ✅ Insight types for reusable knowledge
-│   │   ├── pattern.rs         ✅ Pattern detection and management
-│   │   ├── review.rs          ✅ Reflection review types
-│   │   └── services/          ✅
-│   │       ├── mod.rs         ✅ Services module
-│   │       ├── analyzer.rs    ✅ ReflectionAnalyzer for analyzing experiences
-│   │       ├── generator.rs   ✅ ReflectionGenerator for creating reflections
-│   │       ├── repository.rs  ✅ Thread-safe in-memory reflection repository
-│   │       └── validator.rs   ✅ ReflectionValidator for quality checks
+│   │   ├── mod.rs              ✅ Reflection module root
+│   │   ├── reflection.rs       ✅ Core Reflection struct and methods
+│   │   ├── insight.rs          ✅ Insight types for reusable knowledge
+│   │   ├── pattern.rs          ✅ Pattern detection and management
+│   │   ├── review.rs           ✅ Reflection review types
+│   │   └── services/           ✅
+│   │       ├── mod.rs          ✅ Services module
+│   │       ├── analyzer.rs     ✅ ReflectionAnalyzer for analyzing experiences
+│   │       ├── generator.rs    ✅ ReflectionGenerator for creating reflections
+│   │       ├── repository.rs   ✅ Thread-safe in-memory reflection repository
+│   │       └── validator.rs    ✅ ReflectionValidator for quality checks
 │   ├── evolution/              ✅
-│   │   ├── mod.rs             ✅ Evolution module root
-│   │   ├── behavior.rs        ✅ Behavior struct and lifecycle management
-│   │   ├── evidence.rs        ✅ Evolution evidence types
-│   │   └── engine.rs          ✅ Evolution engine for behavior management
+│   │   ├── mod.rs              ✅ Evolution module root
+│   │   ├── behavior.rs         ✅ Behavior struct and lifecycle management
+│   │   ├── evidence.rs         ✅ Evolution evidence types
+│   │   └── engine.rs           ✅ Evolution engine for behavior management
 │   ├── metrics.rs              ✅ Metrics collection with counters, gauges, aggregation
 │   ├── scheduler.rs            ✅ Background task scheduler with interval/daily/weekly schedules
 ├── planner/                    ✅
@@ -342,16 +342,16 @@ src/
 │   ├── hypothesis.rs           ✅ Hypothesis tracking and evaluation
 │   └── candidates.rs           ✅ Learning candidate generation
 └── cli/                        ✅
-    ├── mod.rs                   ✅ CLI module root
-    ├── commands/                ✅ CLI commands
-    │   ├── server.rs            ✅ Start MCP server
-    │   ├── init.rs              ✅ Initialize database
-    │   ├── status.rs            ✅ Check system status
-    │   ├── memory.rs            ✅ Memory management
-    │   ├── experience.rs        ✅ Experience statistics
-    │   ├── config.rs            ✅ Show configuration
-    │   └── migrate.rs           ✅ Run migrations
-    └── output.rs                ✅ Formatted output utilities
+    ├── mod.rs                  ✅ CLI module root
+    ├── commands/               ✅ CLI commands
+    │   ├── server.rs           ✅ Start MCP server
+    │   ├── init.rs             ✅ Initialize database
+    │   ├── status.rs           ✅ Check system status
+    │   ├── memory.rs           ✅ Memory management
+    │   ├── experience.rs       ✅ Experience statistics
+    │   ├── config.rs           ✅ Show configuration
+    │   └── migrate.rs          ✅ Run migrations
+    └── output.rs               ✅ Formatted output utilities
 ```
 
 **Legend:** ✅ Implemented | ⚠️ Stubbed/partial | ❌ Placeholder code only | 🟡 Partially done | 📋 Planned but not started
@@ -428,7 +428,7 @@ cargo build --release
 | Experience recorder | ✅ Implemented | Record/success/failure methods working with database |
 | Experience repository | ✅ Implemented | Full CRUD for encounters and experiences |
 | Reflection system | ✅ Complete | Core types, services (analyzer, generator, repository, validator), patterns |
-| Hypothesis system | ✅ Implemented | Core hypothesis with evidence, evaluation, lifecycle, and services |
+| Hypothesis system | ✅ Implemented | Core hypothesis with evidence, evaluation, lifecycle, services, graph, simulation, and planner |
 | Exploration system | ✅ Implemented | Exploration tracking with repository |
 | Reputation system | ✅ Implemented | Full reputation tracking with decay and analytics |
 | Evolution system | ✅ Implemented | Behavior creation from insights, tracking, promotion/deprecation |
