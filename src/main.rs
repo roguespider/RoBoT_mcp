@@ -9,6 +9,11 @@ mod experience;
 mod bridge;
 mod tools;
 
+mod planner;
+mod skills;
+mod workflows;
+mod learning;
+
 use app::App;
 use logging::init_logging;
 
