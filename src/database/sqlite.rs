@@ -17,9 +17,13 @@ pub struct SqliteDatabase {
 }
 
 impl SqliteDatabase {
-    /// Open (or create) the application's database.
+    /// Open (or create) the application's database beside the executable.
     pub fn initialize() -> Result<Self> {
-        Self::initialize_at("data")
+        let exe_path = std::env::current_exe()
+            .context("Failed to get executable path")?;
+        let exe_dir = exe_path.parent()
+            .context("Executable has no parent directory")?;
+        Self::initialize_at(exe_dir)
     }
 
     /// Open (or create) a database at a specific location.
