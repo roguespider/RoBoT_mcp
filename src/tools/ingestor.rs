@@ -42,8 +42,6 @@ pub struct IngestFilesInput {
     pub limit: Option<usize>,
     /// Chunk size for text splitting
     pub chunk_size: Option<usize>,
-    /// Whether to delete files after successful ingestion
-    pub delete_after: Option<bool>,
     /// Memory type to use for ingested content
     pub memory_type: Option<String>,
 }
@@ -64,10 +62,29 @@ pub struct TranscribeAudioInput {
     pub output: Option<String>,
 }
 
+/// Tool: Delete successfully imported files (requires confirmation)
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct DeleteIngestedFilesInput {
+    /// List of file paths to delete (from successful ingestion response)
+    pub files: Vec<String>,
+    /// Must be "yes" or "confirm" to actually delete files
+    pub confirmation: String,
+}
+
+/// Tool: List files that were successfully ingested and can be deleted
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ListIngestedFilesInput {
+    /// Only show files from this import folder
+    pub folder: Option<String>,
+    /// Maximum number of files to return
+    pub limit: Option<usize>,
+}
+
 /// Result of ingesting a single file
 #[derive(Debug, Clone, Serialize)]
 pub struct IngestResult {
     pub filename: String,
+    pub file_path: String,
     pub success: bool,
     pub chunks_created: usize,
     pub memory_ids: Vec<String>,
@@ -98,12 +115,14 @@ pub mod definitions {
     pub const INGEST_FILES: &str = "ingest_files";
     pub const LIST_IMPORTABLE: &str = "list_importable";
     pub const TRANSCRIBE_AUDIO: &str = "transcribe_audio";
+    pub const LIST_INGESTED_FILES: &str = "list_ingested_files";
+    pub const DELETE_INGESTED_FILES: &str = "delete_ingested_files";
 
     pub fn all() -> Vec<crate::bridge::mcp::McpTool> {
         vec![
             crate::bridge::mcp::McpTool {
                 name: INGEST_FILES.to_string(),
-                description: "Ingest files from a folder into short-term memory. Handles zip, tar, pdf, txt, json, and audio files.".to_string(),
+                description: "Ingest files from a folder into short-term memory. Handles zip, tar, pdf, txt, json, and audio files. Returns list of files that can be safely deleted after confirmation.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -118,10 +137,6 @@ pub mod definitions {
                         "chunk_size": {
                             "type": "number",
                             "description": "Size of text chunks (default: 1000 characters)"
-                        },
-                        "delete_after": {
-                            "type": "boolean",
-                            "description": "Delete files after successful ingestion (default: false)"
                         },
                         "memory_type": {
                             "type": "string",
@@ -160,6 +175,42 @@ pub mod definitions {
                         }
                     },
                     "required": ["path"]
+                }),
+            },
+            crate::bridge::mcp::McpTool {
+                name: LIST_INGESTED_FILES.to_string(),
+                description: "List files that have been successfully ingested and are safe to delete".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "folder": {
+                            "type": "string",
+                            "description": "Only show files from this import folder"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of files to return"
+                        }
+                    }
+                }),
+            },
+            crate::bridge::mcp::McpTool {
+                name: DELETE_INGESTED_FILES.to_string(),
+                description: "Delete files that were successfully ingested. REQUIRES confirmation - set confirmation to 'yes' to proceed with deletion.".to_string(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "files": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "List of file paths to delete"
+                        },
+                        "confirmation": {
+                            "type": "string",
+                            "description": "Must be 'yes' or 'confirm' to delete files. Any other value will simulate deletion and show what would be deleted."
+                        }
+                    },
+                    "required": ["files", "confirmation"]
                 }),
             },
         ]
@@ -465,6 +516,7 @@ fn ingest_file(
 
     Ok(IngestResult {
         filename,
+        file_path: path.to_string_lossy().to_string(),
         success: true,
         chunks_created: chunks.len(),
         memory_ids,
@@ -569,7 +621,6 @@ pub async fn execute_ingest_files(
     let folder = get_import_folder(input.folder.as_deref());
     let chunk_size = input.chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
     let overlap = DEFAULT_CHUNK_OVERLAP;
-    let delete_after = input.delete_after.unwrap_or(false);
     let memory_type = input.memory_type.unwrap_or_else(|| "file".to_string());
     let limit = input.limit;
 
@@ -596,20 +647,13 @@ pub async fn execute_ingest_files(
             Ok(result) => {
                 total_chunks += result.chunks_created;
                 successful += 1;
-                
-                // Delete original file if requested
-                if delete_after {
-                    if let Err(e) = fs::remove_file(path) {
-                        tracing::warn!("Failed to delete {:?}: {}", path, e);
-                    }
-                }
-                
                 results.push(result);
             }
             Err(e) => {
                 failed += 1;
                 results.push(IngestResult {
-                    filename: file_info.filename,
+                    filename: file_info.filename.clone(),
+                    file_path: file_info.path.clone(),
                     success: false,
                     chunks_created: 0,
                     memory_ids: vec![],
@@ -619,6 +663,13 @@ pub async fn execute_ingest_files(
         }
     }
 
+    // Collect successfully ingested file paths for deletion
+    let successfully_ingested: Vec<String> = results
+        .iter()
+        .filter(|r| r.success)
+        .map(|r| r.file_path.clone())
+        .collect();
+
     let summary = IngestSummary {
         total_files,
         successful,
@@ -627,7 +678,15 @@ pub async fn execute_ingest_files(
         results,
     };
 
-    Ok(serde_json::to_value(summary)?)
+    Ok(serde_json::json!({
+        "summary": summary,
+        "successfully_ingested": successfully_ingested,
+        "files_to_delete": format!(
+            "Files have been ingested. To delete them, call delete_ingested_files with the 'files' parameter. \
+            Example: {{\"files\": [\"path/to/file1\", \"path/to/file2\"], \"confirmation\": \"yes\"}}"
+        ),
+        "user_action_required": "Confirm file deletion by calling delete_ingested_files tool"
+    }))
 }
 
 /// Execute list importable tool
@@ -673,6 +732,134 @@ pub async fn execute_transcribe_audio(
         "transcription_file": output_path.to_string_lossy(),
         "transcription": text,
         "note": "This is a placeholder. Connect to Whisper API or local model for actual transcription."
+    }))
+}
+
+/// Execute list ingested files tool
+pub async fn execute_list_ingested_files(
+    input: ListIngestedFilesInput,
+) -> Result<serde_json::Value> {
+    let folder = get_import_folder(input.folder.as_deref());
+    let limit = input.limit.unwrap_or(100);
+    
+    // Collect files from the import folder
+    let files = collect_importable_files(&folder)?;
+    
+    // Filter and limit
+    let files_to_show: Vec<_> = files
+        .into_iter()
+        .take(limit)
+        .collect();
+    
+    let total_count = files_to_show.len();
+    
+    // Format for display
+    let file_paths: Vec<String> = files_to_show
+        .iter()
+        .map(|f| f.path.clone())
+        .collect();
+    
+    Ok(serde_json::json!({
+        "folder": folder.to_string_lossy(),
+        "count": total_count,
+        "files": file_paths,
+        "deletion_command": {
+            "tool": "delete_ingested_files",
+            "example": {
+                "files": file_paths,
+                "confirmation": "yes"
+            }
+        }
+    }))
+}
+
+/// Execute delete ingested files tool
+pub async fn execute_delete_ingested_files(
+    input: DeleteIngestedFilesInput,
+) -> Result<serde_json::Value> {
+    let confirmed = input.confirmation.to_lowercase() == "yes" 
+        || input.confirmation.to_lowercase() == "confirm";
+    
+    if input.files.is_empty() {
+        return Ok(serde_json::json!({
+            "success": false,
+            "message": "No files specified for deletion",
+            "deleted": [],
+            "failed": []
+        }));
+    }
+    
+    if !confirmed {
+        // Simulation mode - show what would be deleted
+        let mut would_delete = Vec::new();
+        for file_path in &input.files {
+            let path = Path::new(file_path);
+            if path.exists() {
+                would_delete.push(serde_json::json!({
+                    "path": file_path,
+                    "status": "would_delete",
+                    "exists": true
+                }));
+            } else {
+                would_delete.push(serde_json::json!({
+                    "path": file_path,
+                    "status": "not_found",
+                    "exists": false
+                }));
+            }
+        }
+        
+        return Ok(serde_json::json!({
+            "success": true,
+            "simulation": true,
+            "message": "This is a SIMULATION. Files were NOT deleted.",
+            "confirmation_required": "Set 'confirmation' to 'yes' or 'confirm' to actually delete",
+            "would_delete": would_delete,
+            "deleted": [],
+            "failed": []
+        }));
+    }
+    
+    // Actually delete the files
+    let mut deleted = Vec::new();
+    let mut failed = Vec::new();
+    
+    for file_path in &input.files {
+        let path = Path::new(file_path);
+        
+        if !path.exists() {
+            failed.push(serde_json::json!({
+                "path": file_path,
+                "error": "File not found"
+            }));
+            continue;
+        }
+        
+        match fs::remove_file(path) {
+            Ok(()) => {
+                tracing::info!("Deleted file: {:?}", path);
+                deleted.push(file_path.clone());
+            }
+            Err(e) => {
+                tracing::warn!("Failed to delete {:?}: {}", path, e);
+                failed.push(serde_json::json!({
+                    "path": file_path,
+                    "error": e.to_string()
+                }));
+            }
+        }
+    }
+    
+    Ok(serde_json::json!({
+        "success": failed.is_empty(),
+        "simulation": false,
+        "deleted": deleted,
+        "failed": failed,
+        "summary": {
+            "total_requested": input.files.len(),
+            "deleted_count": deleted.len(),
+            "failed_count": failed.len()
+        }
     }))
 }
 
