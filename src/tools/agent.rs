@@ -22,7 +22,7 @@ fn get_mcp_client() -> Option<Arc<McpClient>> {
 
 /// Tool input for ping (no parameters needed)
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-pub struct PingInput;
+pub struct PingInput {}
 
 /// Tool input for listing available tools
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
