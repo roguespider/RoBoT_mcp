@@ -20,7 +20,7 @@ flate2 = "1"
 sha2 = "0.10"
 lazy_static = "1"
 dirs = "5"
-rusqlite = { version = "0.32", features = ["load_extension"] }
+rusqlite = { version = "0.32", features = ["load_extension", "bundled"] }
 zerocopy = { version = "0.7", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

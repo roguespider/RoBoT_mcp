@@ -407,8 +407,9 @@ impl WorkflowEngine {
             // Experience actions
             "record_experience" => {
                 let context_value = params.get("context")
-                    .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok());
-                
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                    .map(|v| serde_json::to_string(&v).unwrap_or_default());
+
                 let input = tools::experience::RecordExperienceInput {
                     title: get_param("title"),
                     description: get_param("description"),
