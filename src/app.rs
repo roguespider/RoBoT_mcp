@@ -52,9 +52,6 @@ pub struct App {
     /// MCP context shared with bridge.
     mcp_context: Arc<McpContext>,
 
-    /// MCP client for connecting to external MCP servers.
-    mcp_client: Arc<McpClient>,
-
     /// Working memory for short-term memory items.
     #[allow(dead_code)]
     working_memory: Arc<WorkingMemory>,
@@ -105,11 +102,8 @@ impl App {
         // Register MCP tools
         tools::register_tools(&mcp_context);
 
-        // Create MCP client for external connections
-        let mcp_client = Arc::new(McpClient::new());
-        
-        // Initialize the global MCP client for tools
-        crate::tools::agent::init_mcp_client(mcp_client.clone());
+        // Create MCP client for external connections and initialize globally
+        crate::tools::agent::init_mcp_client(Arc::new(McpClient::new()));
 
         tracing::info!("RoBoT initialized successfully");
 
@@ -122,7 +116,6 @@ impl App {
             scheduler,
             metrics,
             mcp_context,
-            mcp_client,
             working_memory,
             lineage_tracker,
         })

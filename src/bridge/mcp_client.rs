@@ -179,12 +179,6 @@ impl McpClient {
             }),
         }
     }
-
-    /// Get list of connected server names
-    pub async fn connected_servers(&self) -> Vec<String> {
-        let servers = self.servers.read().await;
-        servers.iter().map(|s| s.name.clone()).collect()
-    }
 }
 
 impl Default for McpClient {
