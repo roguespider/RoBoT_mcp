@@ -40,7 +40,7 @@ pub async fn run_stdio_server(
         version: version.to_string(),
     };
     
-    // Debug: Log the tools that will be exposed
+    // Log the tools that will be exposed
     let router = McpServerHandler::tool_router();
     let tools = router.list_all();
     tracing::info!("MCP tools exposed via rmcp: {} tools", tools.len());
@@ -50,7 +50,15 @@ pub async fn run_stdio_server(
     
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
     
-    serve_server(handler, (stdin, stdout)).await?;
+    // Start the server and wait for it to complete
+    let running = serve_server(handler, (stdin, stdout)).await?;
+    
+    tracing::info!("Server started, waiting for connections...");
+    
+    // Wait for the service to complete (until transport closes)
+    let quit_reason = running.waiting().await?;
+    
+    tracing::info!("Server stopped: {:?}", quit_reason);
     
     Ok(())
 }

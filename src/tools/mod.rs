@@ -115,12 +115,21 @@ pub fn register_tools(context: &Arc<McpContext>) {
     }
 }
 
-/// Get all registered tools
+/// Get all registered tools (sync version for use outside async context)
 #[allow(dead_code)]
 pub fn get_tools() -> Vec<crate::bridge::mcp::McpTool> {
     TOOL_REGISTRY
         .get()
         .map(|r| r.blocking_read().tools.clone())
         .unwrap_or_default()
+}
+
+/// Get all registered tools (async version for use inside async context)
+#[allow(dead_code)]
+pub async fn get_tools_async() -> Vec<crate::bridge::mcp::McpTool> {
+    tokio::sync::RwLock::read(TOOL_REGISTRY.get().unwrap())
+        .await
+        .tools
+        .clone()
 }
 
