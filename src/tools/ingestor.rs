@@ -166,7 +166,7 @@ pub mod definitions {
             },
             crate::bridge::mcp::McpTool {
                 name: LIST_IMPORTABLE.to_string(),
-                description: "List files ready for import. Use limit to control how many files to show (default 5)".to_string(),
+                description: "List files ready for import. Returns one file at a time by default.".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
@@ -176,7 +176,7 @@ pub mod definitions {
                         },
                         "limit": {
                             "type": "number",
-                            "description": "Max files to return (default: 5)"
+                            "description": "Max files to return (default: 1)"
                         }
                     }
                 }),
@@ -743,6 +743,7 @@ fn ingest_archive(
     overlap: usize,
     memory_type: &str,
 ) -> Result<IngestResult> {
+    let archive_path = path.to_path_buf();
     let filename = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -756,7 +757,7 @@ fn ingest_archive(
     }
 
     // Extract archive
-    let extracted_files = process_archive(path, &temp_dir)?;
+    let extracted_files = process_archive(&archive_path, &temp_dir)?;
     
     if extracted_files.is_empty() {
         return Err(anyhow::anyhow!("Archive is empty or contains no readable files"));
@@ -770,6 +771,13 @@ fn ingest_archive(
     
     // Clean up temp directory
     let _ = fs::remove_dir_all(&temp_dir);
+
+    // Delete the ZIP file after successful ingestion
+    if result.success {
+        if let Err(e) = fs::remove_file(&archive_path) {
+            tracing::warn!("Failed to delete archive {:?}: {}", archive_path, e);
+        }
+    }
 
     Ok(IngestResult {
         filename: format!("{}/{}", filename, result.filename),
@@ -1030,11 +1038,9 @@ pub async fn execute_ingest_files(
     Ok(ToolOutput::success(serde_json::json!({
         "summary": summary,
         "successfully_ingested": successfully_ingested,
-        "next_action": "Use delete_ingested_files to delete the ingested file(s)",
-        "files_to_delete": format!(
-            "Example: {{\"files\": {:?}, \"confirmation\": \"yes\"}}",
-            successfully_ingested
-        )
+        "note": "ZIP/archive files are automatically deleted after successful ingestion",
+        "files_to_delete": successfully_ingested.iter().filter(|f| !f.contains(".zip") && !f.ends_with(".tar") && !f.ends_with(".gz")).collect::<Vec<_>>(),
+        "next_action": "Use delete_ingested_files for remaining regular files"
     })))
 }
 
@@ -1047,8 +1053,8 @@ pub async fn execute_list_importable(
     let files = collect_importable_files(&folder)?;
     let total_count = files.len();
     
-    // Limit files returned to avoid token overflow
-    let limit = input.limit.unwrap_or(5);
+    // Limit files returned to avoid token overflow (default 1)
+    let limit = input.limit.unwrap_or(1);
     let limited_files: Vec<_> = files.into_iter().take(limit).collect();
     let returned_count = limited_files.len();
     
