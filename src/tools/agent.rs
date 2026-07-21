@@ -71,6 +71,7 @@ pub mod definitions {
 /// Execute list_tools tool
 pub async fn execute_list_tools(input: ListToolsInput) -> Result<serde_json::Value, anyhow::Error> {
     let all_tools = get_tools();
+    let total_count = all_tools.len();
     
     let filtered_tools: Vec<serde_json::Value> = all_tools
         .into_iter()
@@ -95,7 +96,7 @@ pub async fn execute_list_tools(input: ListToolsInput) -> Result<serde_json::Val
     Ok(serde_json::json!({
         "tools": filtered_tools,
         "count": filtered_tools.len(),
-        "total_available": all_tools.len()
+        "total_available": total_count
     }))
 }
 
