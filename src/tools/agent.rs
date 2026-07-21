@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::bridge::mcp::McpClient;
-use crate::tools::{get_tools, ToolOutput};
+use crate::tools::{get_tools_async, ToolOutput};
 
 /// Global MCP client instance
 static MCP_CLIENT: std::sync::OnceLock<Arc<McpClient>> = std::sync::OnceLock::new();
@@ -143,7 +143,7 @@ pub mod definitions {
 
 /// Execute list_tools tool
 pub async fn execute_list_tools(input: ListToolsInput) -> Result<ToolOutput, anyhow::Error> {
-    let all_tools = get_tools();
+    let all_tools = get_tools_async().await;
     let total_count = all_tools.len();
     
     let filtered_tools: Vec<serde_json::Value> = all_tools
@@ -175,7 +175,7 @@ pub async fn execute_list_tools(input: ListToolsInput) -> Result<ToolOutput, any
 
 /// Execute get_tool tool
 pub async fn execute_get_tool(input: GetToolInput) -> Result<ToolOutput, anyhow::Error> {
-    let all_tools = get_tools();
+    let all_tools = get_tools_async().await;
     
     let tool = all_tools
         .into_iter()
@@ -204,7 +204,7 @@ pub async fn execute_ping(_input: PingInput) -> Result<ToolOutput, anyhow::Error
         "status": "ok",
         "message": "MCP server is running",
         "timestamp": chrono::Utc::now().to_rfc3339(),
-        "available_tools": get_tools().len()
+        "available_tools": get_tools_async().await.len()
     })))
 }
 
