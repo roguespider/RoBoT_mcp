@@ -1,6 +1,8 @@
 // src/bridge/tools/experience.rs
 // Experience-related MCP tools
 
+#![allow(unused)]
+
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -171,16 +173,11 @@ pub async fn execute_record_experience(
     coordinator: &Arc<ExperienceCoordinator>,
     database: &Arc<SqliteDatabase>,
 ) -> Result<ToolOutput> {
-    // Parse context JSON if provided
-    let parsed_context = match input.context {
-        Some(ctx_str) => {
-            match serde_json::from_str(&ctx_str) {
-                Ok(v) => v,
-                Err(e) => return Err(anyhow::anyhow!("Invalid JSON in context: {}", e)),
-            }
-        }
-        None => serde_json::Value::Null,
-    };
+    // Validate context JSON if provided
+    if let Some(ref ctx_str) = input.context {
+        let _: serde_json::Value = serde_json::from_str(ctx_str)
+            .map_err(|e| anyhow::anyhow!("Invalid JSON in context: {}", e))?;
+    }
 
     let experience = Experience {
         id: Uuid::new_v4(),
