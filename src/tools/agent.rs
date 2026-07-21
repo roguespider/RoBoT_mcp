@@ -48,7 +48,8 @@ pub struct ConnectMcpServerInput {
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CallMcpToolInput {
     pub tool_name: String,
-    pub arguments: Option<serde_json::Value>,
+    /// JSON-encoded arguments as a string (e.g., "{\"key\": \"value\"}")
+    pub arguments: Option<String>,
 }
 
 /// Agent tool definitions
@@ -66,7 +67,8 @@ pub mod definitions {
                 description: "Ping the MCP server to verify connection".to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
-                    "properties": {}
+                    "properties": {},
+                    "additionalProperties": false
                 }),
             },
             crate::bridge::mcp::McpTool {
@@ -130,8 +132,8 @@ pub mod definitions {
                             "description": "Name of the tool to call"
                         },
                         "arguments": {
-                            "type": "object",
-                            "description": "Arguments to pass to the tool (optional)"
+                            "type": "string",
+                            "description": "JSON-encoded arguments to pass to the tool (e.g., '{\"key\": \"value\"}')"
                         }
                     },
                     "required": ["tool_name"]
@@ -244,7 +246,21 @@ pub async fn execute_call_mcp_tool(input: CallMcpToolInput) -> Result<ToolOutput
         }))),
     };
 
-    match client.call_tool(&input.tool_name, input.arguments).await {
+    // Parse arguments string as JSON if provided
+    let arguments = match input.arguments {
+        Some(args_str) => {
+            match serde_json::from_str(&args_str) {
+                Ok(v) => Some(v),
+                Err(e) => return Ok(ToolOutput::success(serde_json::json!({
+                    "success": false,
+                    "error": format!("Invalid JSON in arguments: {}", e)
+                }))),
+            }
+        }
+        None => None,
+    };
+
+    match client.call_tool(&input.tool_name, arguments).await {
         Ok(result) => Ok(ToolOutput::success(serde_json::json!({
             "success": true,
             "result": result

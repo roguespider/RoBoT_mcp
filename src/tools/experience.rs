@@ -21,7 +21,8 @@ pub struct RecordExperienceInput {
     pub description: String,
     pub experience_type: String,
     pub outcome: String,
-    pub context: Option<serde_json::Value>,
+    /// JSON-encoded context as a string (e.g., "{\"key\": \"value\"}")
+    pub context: Option<String>,
 }
 
 /// Tool: Get experience statistics
@@ -77,8 +78,8 @@ pub mod definitions {
                             "enum": ["success", "failure", "partial", "timeout", "interrupted"]
                         },
                         "context": {
-                            "type": "object",
-                            "description": "Optional context information"
+                            "type": "string",
+                            "description": "JSON-encoded context information (e.g., '{\"key\": \"value\"}')"
                         }
                     },
                     "required": ["title", "description", "experience_type", "outcome"]
@@ -170,6 +171,17 @@ pub async fn execute_record_experience(
     coordinator: &Arc<ExperienceCoordinator>,
     database: &Arc<SqliteDatabase>,
 ) -> Result<ToolOutput> {
+    // Parse context JSON if provided
+    let parsed_context = match input.context {
+        Some(ctx_str) => {
+            match serde_json::from_str(&ctx_str) {
+                Ok(v) => v,
+                Err(e) => return Err(anyhow::anyhow!("Invalid JSON in context: {}", e)),
+            }
+        }
+        None => serde_json::Value::Null,
+    };
+
     let experience = Experience {
         id: Uuid::new_v4(),
         timestamp: Utc::now(),
