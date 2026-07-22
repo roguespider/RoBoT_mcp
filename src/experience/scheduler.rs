@@ -243,13 +243,14 @@ impl Scheduler {
     /// Re-enable a disabled task
     pub async fn enable_task(&self, id: &str) -> Result<()> {
         let conn = self.database.connection()?;
-        if let Some(mut task) = queries::get_scheduled_task(&conn, id)?
-            && task.status == TaskStatus::Disabled {
+        if let Some(mut task) = queries::get_scheduled_task(&conn, id)? {
+            if task.status == TaskStatus::Disabled {
                 task.status = TaskStatus::Scheduled;
                 task.failure_count = 0;
                 task.next_run = Self::calculate_next_run(&task.schedule);
                 queries::insert_scheduled_task(&conn, &task)?;
             }
+        }
         Ok(())
     }
 

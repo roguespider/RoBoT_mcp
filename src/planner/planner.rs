@@ -110,11 +110,13 @@ impl Planner {
     /// Add dependency to a step
     pub async fn add_dependency(&self, plan_id: &str, step_id: &str, depends_on: &str) -> Result<()> {
         let mut plans = self.active_plans.write().await;
-        if let Some(plan) = plans.get_mut(plan_id)
-            && let Some(step) = plan.steps.iter_mut().find(|s| s.id == step_id)
-                && !step.dependencies.contains(&depends_on.to_string()) {
+        if let Some(plan) = plans.get_mut(plan_id) {
+            if let Some(step) = plan.steps.iter_mut().find(|s| s.id == step_id) {
+                if !step.dependencies.contains(&depends_on.to_string()) {
                     step.dependencies.push(depends_on.to_string());
                 }
+            }
+        }
         Ok(())
     }
 

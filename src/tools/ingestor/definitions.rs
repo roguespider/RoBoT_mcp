@@ -72,7 +72,7 @@ pub fn all() -> Vec<McpTool> {
                         "description": "Output path for transcription JSON"
                     }
                 },
-                required: ["path"]
+                "required": ["path"]
             }),
         },
         McpTool {
@@ -108,7 +108,7 @@ pub fn all() -> Vec<McpTool> {
                         "description": "Must be 'yes' or 'confirm'"
                     }
                 },
-                required: ["files", "confirmation"]
+                "required": ["files", "confirmation"]
             }),
         },
     ]

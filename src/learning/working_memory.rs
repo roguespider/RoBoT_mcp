@@ -377,14 +377,15 @@ impl WorkingMemory {
     /// Promote an item to long-term memory (returns the item if successful)
     pub async fn promote(&self, key: &str) -> Option<WorkingMemoryItem> {
         let mut items = self.items.write().await;
-        if let Some(item) = items.get_mut(key)
-            && item.transition(StateTransition::Promote, Some("Manual promotion".to_string())) {
+        if let Some(item) = items.get_mut(key) {
+            if item.transition(StateTransition::Promote, Some("Manual promotion".to_string())) {
                 item.confidence = self.policy.calculate_confidence(
                     item.access_count,
                     item.confirmation_count,
                 );
                 return Some(item.clone());
             }
+        }
         None
     }
     

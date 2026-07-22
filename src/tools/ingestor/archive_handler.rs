@@ -2,7 +2,7 @@
 // Archive extraction and temp folder management
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use flate2::read::GzDecoder;
@@ -42,28 +42,6 @@ pub fn get_recent_archive_temp_folder() -> Option<PathBuf> {
     LAST_ARCHIVE_FOLDER.get().cloned()
 }
 
-/// Collect all files from a directory recursively
-pub fn collect_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
-    let mut files = Vec::new();
-    
-    if !dir.exists() {
-        return Ok(files);
-    }
-    
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        
-        if path.is_dir() {
-            files.extend(collect_all_files_recursive(&path)?);
-        } else {
-            files.push(path);
-        }
-    }
-    
-    Ok(files)
-}
-
 /// Delete empty folders recursively
 pub fn delete_empty_folders(dir: &Path) {
     if !dir.exists() {
@@ -89,7 +67,7 @@ pub fn delete_empty_folders(dir: &Path) {
 }
 
 /// Process archive file and extract to temp directory
-pub fn process_archive(archive_path: &Path, temp_dir: &Path) -> Result<Vec<PathBuf>> {
+pub fn process_archive(archive_path: &Path, _temp_dir: &Path) -> Result<Vec<PathBuf>> {
     let extension = archive_path
         .extension()
         .and_then(|e| e.to_str())
@@ -190,7 +168,7 @@ fn extract_gz(archive_path: &Path, dest: &Path) -> Result<()> {
 
 /// Extract BZ2 file (single file)
 fn extract_bz2(archive_path: &Path, dest: &Path) -> Result<()> {
-    use std::io::Read;
+    
     
     let file = fs::File::open(archive_path)?;
     let mut decoder = bzip2::read::BzDecoder::new(file);
@@ -208,7 +186,7 @@ fn extract_bz2(archive_path: &Path, dest: &Path) -> Result<()> {
 
 /// Extract XZ file (single file)
 fn extract_xz(archive_path: &Path, dest: &Path) -> Result<()> {
-    use std::io::Read;
+    
     
     let file = fs::File::open(archive_path)?;
     let mut decoder = xz2::read::XzDecoder::new(file);

@@ -122,16 +122,18 @@ impl ReflectionRepository {
 
         if let Some(reflection) = &removed {
             // Remove from type index
-            if let Ok(mut by_type) = self.by_type.write()
-                && let Some(ids) = by_type.get_mut(&reflection.reflection_type) {
+            if let Ok(mut by_type) = self.by_type.write() {
+                if let Some(ids) = by_type.get_mut(&reflection.reflection_type) {
                     ids.retain(|i| i != id);
                 }
+            }
 
             // Remove from status index
-            if let Ok(mut by_status) = self.by_status.write()
-                && let Some(ids) = by_status.get_mut(&reflection.status) {
+            if let Ok(mut by_status) = self.by_status.write() {
+                if let Some(ids) = by_status.get_mut(&reflection.status) {
                     ids.retain(|i| i != id);
                 }
+            }
         }
 
         Ok(removed)

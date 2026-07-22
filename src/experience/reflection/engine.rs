@@ -96,10 +96,11 @@ impl ReflectionEngine {
             }
             
             // Auto-validate if threshold met
-            if validation.score >= self.config.auto_validate_threshold
-                && let Some(ref mut r) = reflection {
+            if validation.score >= self.config.auto_validate_threshold {
+                if let Some(ref mut r) = reflection {
                     r.validate();
                 }
+            }
             
             // Save to repository
             if let Some(ref r) = reflection {

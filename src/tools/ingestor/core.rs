@@ -1,37 +1,28 @@
-// src/tools/ingestor/ingestor.rs
+// src/tools/ingestor/core.rs
 // Core file ingestion logic
 
-pub mod archive_handler;
-pub mod audio;
-pub mod definitions;
-pub mod file_collector;
-pub mod text_extractor;
-pub mod workflow;
-
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::database::models::{MemoryCard, MemoryType};
 use crate::database::queries;
 use crate::database::sqlite::SqliteDatabase;
 use crate::tools::ToolOutput;
 use crate::tools::ingestor::archive_handler::{
-    collect_all_files_recursive, create_archive_temp_dir, delete_empty_folders,
+    create_archive_temp_dir, delete_empty_folders,
     get_recent_archive_temp_folder, process_archive,
 };
-use crate::tools::ingestor::file_collector::{collect_importable_files, get_import_folder, ImportableFile};
+use crate::tools::ingestor::file_collector::{collect_all_files_recursive, collect_importable_files, get_import_folder};
 use crate::tools::ingestor::text_extractor::{chunk_text, extract_text};
 
-// Re-export for convenience
-pub use definitions::all as get_definitions;
-pub use workflow::{
+// Re-export for convenience (via parent module)
+pub use super::workflow::{
     execute_delete_ingested_files, execute_list_importable, execute_list_ingested_files,
 };
-pub use audio::execute_transcribe_audio;
+pub use super::audio::execute_transcribe_audio;
 
 /// Default chunk size for text splitting
 pub const DEFAULT_CHUNK_SIZE: usize = 1000;
@@ -121,13 +112,13 @@ pub async fn ingest_file(
     if let Some(file_path) = file_path {
         let path = Path::new(file_path);
         if path.exists() {
-            return ingest_single_file(path, chunk_size, memory_type, db).await;
+            return Ok(ToolOutput::success(serde_json::to_value(ingest_single_file(path, chunk_size, memory_type, db).await?)?));
         }
 
         // Try relative to folder
         let path = folder.join(file_path);
         if path.exists() {
-            return ingest_single_file(&path, chunk_size, memory_type, db).await;
+            return Ok(ToolOutput::success(serde_json::to_value(ingest_single_file(&path, chunk_size, memory_type, db).await?)?));
         }
 
         return Ok(ToolOutput::error(format!("File not found: {}", file_path)));
@@ -143,7 +134,7 @@ pub async fn ingest_file(
 
     // If folder is a file, ingest it directly
     if folder.is_file() {
-        return ingest_single_file(&folder, chunk_size, memory_type, db).await;
+        return Ok(ToolOutput::success(serde_json::to_value(ingest_single_file(&folder, chunk_size, memory_type, db).await?)?));
     }
 
     // Collect files from folder
@@ -160,7 +151,7 @@ pub async fn ingest_file(
 
         // Check if it's an archive
         if file_info.file_type == "archive" {
-            match ingest_archive(path, chunk_size, memory_type, db.clone()).await {
+            match ingest_archive(path, chunk_size, memory_type.clone(), db.clone()).await {
                 Ok(result) => {
                     results.push(result);
                     successful += 1;
@@ -179,12 +170,14 @@ pub async fn ingest_file(
                 }
             }
         } else {
-            match ingest_single_file(path, chunk_size, memory_type, db.clone()).await {
+            match ingest_single_file(path, chunk_size, memory_type.clone(), db.clone()).await {
                 Ok(result) => {
+                    let chunks = result.chunks_created;
+                    let success = result.success;
                     results.push(result);
-                    if result.success {
+                    if success {
                         successful += 1;
-                        total_chunks += result.chunks_created;
+                        total_chunks += chunks;
                     } else {
                         failed += 1;
                     }
@@ -326,22 +319,10 @@ async fn ingest_single_file(
     let mut memory_ids = Vec::new();
 
     for chunk in &chunks {
-        let memory = MemoryCard {
-            id: Uuid::new_v4(),
-            content: chunk.clone(),
-            memory_type: memory_type.clone(),
-            source: Some(path.to_string_lossy().to_string()),
-            created_at: chrono::Utc::now(),
-            access_count: 0,
-            last_accessed: None,
-            importance_score: Some(0.5),
-            summary: None,
-            metadata: None,
-            recall_count: 0,
-            recall_interval: None,
-        };
+        let memory = MemoryCard::new(chunk.clone(), memory_type.clone());
 
-        queries::create_memory(&db, &memory)?;
+        let conn = db.connection()?;
+        queries::insert_memory(&conn, &memory)?;
         memory_ids.push(memory.id.to_string());
     }
 

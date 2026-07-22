@@ -135,12 +135,12 @@ pub fn search_memory(conn: &Connection, text: &str, limit: usize) -> Result<Vec<
 }
 
 pub fn list_memories(conn: &Connection, memory_type: Option<&str>, limit: usize) -> Result<Vec<MemoryCard>> {
-    let rows = if let Some(mem_type) = memory_type {
+    if let Some(mem_type) = memory_type {
         let mut stmt = conn.prepare(
             "SELECT id, content, memory_type, confidence, importance, created_at, updated_at
              FROM memories WHERE memory_type = ?1 ORDER BY updated_at DESC LIMIT ?2"
         )?;
-        stmt.query_map(params![mem_type, limit as i64], |row| {
+        let rows = stmt.query_map(params![mem_type, limit as i64], |row| {
             let uuid_str: String = row.get(0)?;
             Ok(MemoryCard {
                 id: Uuid::parse_str(&uuid_str).map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?,
@@ -151,13 +151,14 @@ pub fn list_memories(conn: &Connection, memory_type: Option<&str>, limit: usize)
                 created_at: parse_time(&row.get::<_, String>(5)?),
                 updated_at: parse_time(&row.get::<_, String>(6)?),
             })
-        })?.collect::<Result<Vec<_>, _>>()?
+        })?.collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     } else {
         let mut stmt = conn.prepare(
             "SELECT id, content, memory_type, confidence, importance, created_at, updated_at
              FROM memories ORDER BY updated_at DESC LIMIT ?1"
         )?;
-        stmt.query_map([limit as i64], |row| {
+        let rows = stmt.query_map([limit as i64], |row| {
             let uuid_str: String = row.get(0)?;
             Ok(MemoryCard {
                 id: Uuid::parse_str(&uuid_str).map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?,
@@ -168,10 +169,9 @@ pub fn list_memories(conn: &Connection, memory_type: Option<&str>, limit: usize)
                 created_at: parse_time(&row.get::<_, String>(5)?),
                 updated_at: parse_time(&row.get::<_, String>(6)?),
             })
-        })?.collect::<Result<Vec<_>, _>>()?
-    };
-
-    Ok(rows)
+        })?.collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
 }
 
 // ==========================================================

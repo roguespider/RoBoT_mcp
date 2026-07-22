@@ -253,7 +253,7 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::ingestor::IngestFilesInput>,
     ) -> Json<ToolOutput> {
-        match tools::ingestor::execute_ingest_files(input, &self.context.database).await {
+        match tools::ingestor::ingest_file(input, Arc::clone(&self.context.database)).await {
             Ok(result) => Json(result),
             Err(e) => Json(ToolOutput::error(e)),
         }

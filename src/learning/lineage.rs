@@ -277,12 +277,13 @@ impl LineageTracker {
     
     /// Resolve a contradiction
     pub fn resolve_contradiction(&mut self, memory_id: Uuid, contradiction_id: Uuid, resolution: ContradictionResolution) {
-        if let Some(lineage) = self.lineages.get_mut(&memory_id)
-            && let Some(contradiction) = lineage.contradictions.iter_mut().find(|c| c.id == contradiction_id) {
+        if let Some(lineage) = self.lineages.get_mut(&memory_id) {
+            if let Some(contradiction) = lineage.contradictions.iter_mut().find(|c| c.id == contradiction_id) {
                 contradiction.resolved = true;
                 contradiction.resolution = Some(resolution);
                 lineage.updated_at = Utc::now();
             }
+        }
     }
     
     /// Get all unresolved contradictions for a memory

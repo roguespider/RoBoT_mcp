@@ -198,7 +198,7 @@ impl ExperienceCompressor {
             }
         }
 
-        exceptions.sort_by(|a, b| b.deviation_score.partial_cmp(a.deviation_score)).unwrap_or(std::cmp::Ordering::Equal);
+        exceptions.sort_by(|a, b| b.deviation_score.partial_cmp(&a.deviation_score).unwrap_or(std::cmp::Ordering::Equal));
         exceptions
     }
 

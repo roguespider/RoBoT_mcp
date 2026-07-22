@@ -2,7 +2,7 @@
 // Text extraction from various file formats
 
 use std::fs::File;
-use std::io::{self, BufReader, Read};
+use std::io::{BufReader, Read};
 use std::path::Path;
 
 use anyhow::Result;
