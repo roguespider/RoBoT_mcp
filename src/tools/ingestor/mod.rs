@@ -1,9 +1,10 @@
 // src/tools/ingestor/mod.rs
 // Ingestor module - file ingestion for short-term memory
 
-pub mod ingestor;
 pub mod archive_handler;
 pub mod file_collector;
+pub mod text_extractor;
+pub mod ingestor;
 
 // Re-export main types and functions
 pub use ingestor::{

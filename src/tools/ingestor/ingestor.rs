@@ -3,9 +3,9 @@
 
 pub mod archive_handler;
 pub mod file_collector;
+pub mod text_extractor;
 
-use std::fs::{self, File};
-use std::io::{self, BufReader, Read};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -19,6 +19,7 @@ use crate::database::sqlite::SqliteDatabase;
 use crate::tools::ToolOutput;
 use crate::tools::ingestor::archive_handler::{self, get_recent_archive_temp_folder, process_archive};
 use crate::tools::ingestor::file_collector::{self, ImportableFile, collect_importable_files, get_import_folder};
+use crate::tools::ingestor::text_extractor::{extract_text, chunk_text};
 
 /// Default chunk size for text splitting
 pub const DEFAULT_CHUNK_SIZE: usize = 1000;
@@ -201,197 +202,6 @@ pub mod definitions {
 }
 
 // ============================================================================
-// TEXT EXTRACTION
-// ============================================================================
-
-fn extract_text(path: &Path) -> Result<String> {
-    let extension = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    
-    match extension.as_str() {
-        "pdf" => extract_pdf_text(path),
-        "docx" => extract_docx_text(path),
-        "epub" => extract_epub_text(path),
-        _ => {
-            let mut file = File::open(path)?;
-            let mut content = String::new();
-            file.read_to_string(&mut content)?;
-            Ok(content)
-        }
-    }
-}
-
-fn extract_pdf_text(path: &Path) -> Result<String> {
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
-    let mut content = String::new();
-    
-    // Simple PDF text extraction - handles basic cases
-    use std::io::Read;
-    let mut bytes = Vec::new();
-    reader.read_to_end(&mut bytes)?;
-    
-    // Look for text streams in PDF
-    let text = String::from_utf8_lossy(&bytes);
-    let mut result = String::new();
-    
-    for line in text.lines() {
-        // Extract text between BT and ET markers (simplified)
-        if line.contains("BT") || line.contains(" Tj") || line.contains(" TJ") {
-            let cleaned = line
-                .replace("BT", "")
-                .replace("ET", "")
-                .replace("(", "")
-                .replace(")", "")
-                .replace("\\n", "\n")
-                .replace("\\t", "\t");
-            if !cleaned.trim().is_empty() {
-                result.push_str(&cleaned);
-                result.push('\n');
-            }
-        }
-    }
-    
-    if result.trim().is_empty() {
-        anyhow::bail!("Could not extract text from PDF - file may be scanned/image-based");
-    }
-    
-    Ok(result)
-}
-
-fn extract_docx_text(path: &Path) -> Result<String> {
-    let file = File::open(path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
-    
-    let mut content = String::new();
-    
-    if let Ok(mut doc_file) = archive.by_name("word/document.xml") {
-        let mut xml = String::new();
-        doc_file.read_to_string(&mut xml)?;
-        content = strip_xml_tags(&xml);
-    }
-    
-    if content.trim().is_empty() {
-        anyhow::bail!("Could not extract text from DOCX");
-    }
-    
-    Ok(content)
-}
-
-fn extract_epub_text(path: &Path) -> Result<String> {
-    let file = File::open(path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
-    let mut content = String::new();
-    
-    for i in 0..archive.len() {
-        if let Ok(file) = archive.by_index(i) {
-            let name = file.name().to_string();
-            if name.ends_with(".xhtml") || name.ends_with(".html") || name.ends_with(".htm") || name == "content.opf" {
-                let mut html = String::new();
-                let mut f = file;
-                f.read_to_string(&mut html)?;
-                content.push_str(&strip_html_tags(&html));
-                content.push_str("\n\n");
-            }
-        }
-    }
-    
-    if content.trim().is_empty() {
-        anyhow::bail!("Could not extract text from EPUB");
-    }
-    
-    Ok(content)
-}
-
-fn strip_xml_tags(xml: &str) -> String {
-    let mut result = String::new();
-    let mut in_tag = false;
-    let mut in_content = true;
-    
-    for c in xml.chars() {
-        match c {
-            '<' => {
-                in_tag = true;
-                in_content = false;
-            }
-            '>' => {
-                in_tag = false;
-                in_content = true;
-            }
-            _ => {
-                if in_content {
-                    result.push(c);
-                }
-            }
-        }
-    }
-    
-    // Clean up whitespace
-    let lines: Vec<&str> = result.lines()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
-    
-    lines.join("\n")
-}
-
-fn strip_html_tags(html: &str) -> String {
-    let mut result = String::new();
-    let mut in_tag = false;
-    let mut in_content = true;
-    
-    for c in html.chars() {
-        match c {
-            '<' => {
-                in_tag = true;
-                in_content = false;
-            }
-            '>' => {
-                in_tag = false;
-                in_content = true;
-            }
-            _ => {
-                if in_content {
-                    result.push(c);
-                }
-            }
-        }
-    }
-    
-    // Clean up whitespace
-    let lines: Vec<&str> = result.lines()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
-    
-    lines.join("\n")
-}
-
-fn chunk_text(text: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
-    if text.len() <= chunk_size {
-        return vec![text.to_string()];
-    }
-    
-    let mut chunks = Vec::new();
-    let chars: Vec<char> = text.chars().collect();
-    let mut start = 0;
-    
-    while start < chars.len() {
-        let end = (start + chunk_size).min(chars.len());
-        let chunk: String = chars[start..end].iter().collect();
-        chunks.push(chunk);
-        
-        if end >= chars.len() {
-            break;
-        }
-        
-        start = end - overlap;
-    }
-    
-    chunks
 }
 
 // ============================================================================
