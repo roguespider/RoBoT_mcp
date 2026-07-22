@@ -119,7 +119,7 @@ impl SkillRegistry {
         }
         
         skills.push(skill);
-        Ok(skills.last().unwrap().id.clone())
+        Ok(skills.last().expect("Skill was just pushed, should exist").id.clone())
     }
 
     /// Unregister a skill by ID

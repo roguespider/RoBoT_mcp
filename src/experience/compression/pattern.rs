@@ -387,7 +387,7 @@ mod tests {
         let pattern = detector.detect_pattern(&experiences);
         assert!(pattern.is_some());
         
-        let pattern = pattern.unwrap();
+        let pattern = pattern.expect("Pattern detection should succeed for test data");
         assert_eq!(pattern.action, "File read");
         assert!(pattern.common_tags.contains(&"file".to_string()));
         assert_eq!(pattern.success_rate, 1.0);

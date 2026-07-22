@@ -198,7 +198,7 @@ impl ExperienceCompressor {
             }
         }
 
-        exceptions.sort_by(|a, b| b.deviation_score.partial_cmp(&a.deviation_score).unwrap());
+        exceptions.sort_by(|a, b| b.deviation_score.partial_cmp(a.deviation_score)).unwrap_or(std::cmp::Ordering::Equal);
         exceptions
     }
 
@@ -272,7 +272,7 @@ mod tests {
         let result = compressor.compress(&experiences);
         assert!(result.is_some());
         
-        let compressed = result.unwrap();
+        let compressed = result.expect("Compression should succeed for test data");
         assert_eq!(compressed.experience_count, 3);
         assert!((compressed.confidence - 0.85).abs() < 0.01);
     }

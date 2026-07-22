@@ -127,7 +127,7 @@ pub fn get_tools() -> Vec<crate::bridge::mcp::McpTool> {
 /// Get all registered tools (async version for use inside async context)
 #[allow(dead_code)]
 pub async fn get_tools_async() -> Vec<crate::bridge::mcp::McpTool> {
-    tokio::sync::RwLock::read(TOOL_REGISTRY.get().unwrap())
+    tokio::sync::RwLock::read(TOOL_REGISTRY.get().expect("Tool registry should be initialized by register_tools()"))
         .await
         .tools
         .clone()

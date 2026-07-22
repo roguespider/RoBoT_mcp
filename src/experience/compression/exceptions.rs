@@ -197,7 +197,7 @@ impl ExceptionTracker {
     /// Get top exceptions by deviation score
     pub fn get_top(&self, limit: usize) -> Vec<&Exception> {
         let mut sorted: Vec<_> = self.exceptions.iter().collect();
-        sorted.sort_by(|a, b| b.deviation_score.partial_cmp(&a.deviation_score).unwrap());
+        sorted.sort_by(|a, b| b.deviation_score.partial_cmp(&a.deviation_score).unwrap_or(std::cmp::Ordering::Equal));
         sorted.into_iter().take(limit).collect()
     }
 }

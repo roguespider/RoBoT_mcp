@@ -103,7 +103,7 @@ impl<'a> ReputationRepository<'a> {
                 failures: row.get(5)?,
 
                 updated_at: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
-                    .unwrap()
+                    .map_err(|e| anyhow::anyhow!("Invalid datetime format: {}", e))?
                     .with_timezone(&chrono::Utc),
 
                 history: serde_json::from_str(&history_json).unwrap_or_default(),

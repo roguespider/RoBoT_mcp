@@ -359,10 +359,11 @@ impl McpClient {
             }
         }
 
-        // Get a reference to the running service
+        // Get a reference to the running service (server_name already found above)
         let peer = {
             let servers = self.servers.read().await;
-            let server = servers.iter().find(|s| s.tools.iter().any(|t| t.name == tool_name)).unwrap();
+            let server = servers.iter().find(|s| s.name == server_name)
+                .expect("Server should exist - name was validated above");
             server._running.peer().clone()
         };
 

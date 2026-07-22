@@ -189,7 +189,7 @@ mod tests {
         
         let reflection = generator.generate_from_experiences(&experiences, "All successful");
         assert!(reflection.is_some());
-        let r = reflection.unwrap();
+        let r = reflection.expect("Reflection should be generated for test data");
         assert_eq!(r.reflection_type, ReflectionType::Success);
         assert_eq!(r.experience_ids.len(), 2);
     }
@@ -204,7 +204,7 @@ mod tests {
         
         let reflection = generator.generate_from_experiences(&experiences, "All failures");
         assert!(reflection.is_some());
-        let r = reflection.unwrap();
+        let r = reflection.expect("Reflection should be generated for test data");
         assert_eq!(r.reflection_type, ReflectionType::Failure);
     }
 
