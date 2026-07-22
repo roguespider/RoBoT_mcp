@@ -15,4 +15,5 @@ pub use core::{
     execute_list_ingested_files, execute_transcribe_audio, ingest_file,
     IngestFilesInput, ListImportableInput,
     DeleteIngestedFilesInput, ListIngestedFilesInput, TranscribeAudioInput,
+    record_ingested_files, can_delete_files, clear_ingest_tracker,
 };

@@ -1,8 +1,10 @@
 // src/tools/ingestor/core.rs
 // Core file ingestion logic
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -29,6 +31,117 @@ pub const DEFAULT_CHUNK_SIZE: usize = 1000;
 
 /// Default overlap between chunks
 pub const DEFAULT_CHUNK_OVERLAP: usize = 100;
+
+/// Tracks recently ingested files for deletion verification
+/// This prevents agents from deleting files without proper ingestion
+pub struct IngestTracker {
+    recently_ingested: HashSet<String>,
+    last_ingest_time: Option<Instant>,
+}
+
+impl IngestTracker {
+    pub fn new() -> Self {
+        Self {
+            recently_ingested: HashSet::new(),
+            last_ingest_time: None,
+        }
+    }
+    
+    /// Record that files were ingested
+    pub fn record_ingestion(&mut self, file_paths: Vec<String>) {
+        for path in file_paths {
+            self.recently_ingested.insert(path);
+        }
+        self.last_ingest_time = Some(Instant::now());
+    }
+    
+    /// Check if a file was recently ingested
+    pub fn was_recently_ingested(&self, file_path: &str) -> bool {
+        // Normalize path for comparison
+        let normalized = Path::new(file_path)
+            .to_path_buf()
+            .to_string_lossy()
+            .to_lowercase();
+        
+        // Check exact match
+        if self.recently_ingested.iter().any(|p| {
+            Path::new(p).to_path_buf().to_string_lossy().to_lowercase() == normalized
+        }) {
+            return true;
+        }
+        
+        // Check if it's in files_to_import (allow deletion of any file from import folder)
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let import_folder = exe_dir.join("files_to_import");
+                if let Ok(file_path_buf) = Path::new(file_path).canonicalize() {
+                    if let Ok(import_canonical) = import_folder.canonicalize() {
+                        return file_path_buf.starts_with(import_canonical);
+                    }
+                }
+            }
+        }
+        
+        false
+    }
+    
+    /// Check if we can verify deletion (means a recent ingest happened)
+    pub fn can_verify_deletion(&self) -> bool {
+        match self.last_ingest_time {
+            Some(time) => time.elapsed() < Duration::from_secs(300), // 5 minute window
+            None => false,
+        }
+    }
+    
+    /// Clear the tracker (after successful deletion or timeout)
+    pub fn clear(&mut self) {
+        self.recently_ingested.clear();
+        self.last_ingest_time = None;
+    }
+}
+
+impl Default for IngestTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Global ingest tracker
+static INGEST_TRACKER: std::sync::OnceLock<tokio::sync::Mutex<IngestTracker>> = std::sync::OnceLock::new();
+
+fn get_ingest_tracker() -> &'static tokio::sync::Mutex<IngestTracker> {
+    INGEST_TRACKER.get_or_init(|| tokio::sync::Mutex::new(IngestTracker::new()))
+}
+
+/// Record files as ingested (call after successful ingest)
+pub async fn record_ingested_files(file_paths: Vec<String>) {
+    if let Ok(mut tracker) = get_ingest_tracker().try_lock() {
+        tracker.record_ingestion(file_paths);
+    }
+}
+
+/// Check if files can be deleted
+pub async fn can_delete_files(file_paths: &[String]) -> (bool, Vec<String>) {
+    if let Ok(tracker) = get_ingest_tracker().try_lock() {
+        let unverified: Vec<String> = file_paths
+            .iter()
+            .filter(|p| !tracker.was_recently_ingested(p))
+            .cloned()
+            .collect();
+        
+        let all_verified = unverified.is_empty();
+        (all_verified, unverified)
+    } else {
+        (true, vec![]) // If can't lock, allow (fail open for now)
+    }
+}
+
+/// Clear the ingest tracker
+pub async fn clear_ingest_tracker() {
+    if let Ok(mut tracker) = get_ingest_tracker().try_lock() {
+        tracker.clear();
+    }
+}
 
 // ============================================================================
 // INPUT/OUTPUT TYPES
@@ -217,6 +330,12 @@ pub async fn ingest_file(
 
     let remaining_count: usize = results.iter().map(|r| r.remaining_count).sum();
 
+    // RECORD INGESTED FILES for deletion tracking
+    // This enables the delete_ingested_files tool to verify files were actually ingested
+    if !successfully_ingested.is_empty() {
+        record_ingested_files(successfully_ingested.clone()).await;
+    }
+
     // Get folder path for reference
     let folder_display = folder.to_string_lossy().to_string();
     let exe_dir = std::env::current_exe()
@@ -240,12 +359,19 @@ pub async fn ingest_file(
         "temp_folder": get_recent_archive_temp_folder().map(|p| p.to_string_lossy().to_string()),
         "remaining_in_temp": remaining_count,
         "files_stored_in": format!("robot_brain.db in {}", exe_dir),
+        "files_ready_for_deletion": successfully_ingested.clone(),
         "note": if remaining_count > 0 {
             format!("{} file(s) remaining in temp folder. Call ingest again with temp_folder path.", remaining_count)
         } else {
             "All files ingested.".to_string()
         },
-        "workflow": "1. Ingest files\n2. Review remaining_in_temp\n3. ASK USER for confirmation before deleting originals\n4. Use delete_ingested_files with confirmation='yes' to delete originals"
+        "deletion_workflow": {
+            "step_1": "ASK USER: 'Can I delete the original file(s)?'",
+            "step_2": "Only after user says YES, call delete_ingested_files",
+            "step_3": "Must provide confirmation='yes'",
+            "files_pending_deletion": successfully_ingested.len()
+        },
+        "warning": "You MUST ask the user before calling delete_ingested_files. Do NOT delete without asking."
     })))
 }
 

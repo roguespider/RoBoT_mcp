@@ -89,21 +89,6 @@ pub async fn execute_list_ingested_files(
 pub async fn execute_delete_ingested_files(
     input: DeleteIngestedFilesInput,
 ) -> Result<ToolOutput> {
-    // Strict confirmation verification - must be exactly "yes" or "confirm"
-    let confirmation = input.confirmation.trim().to_lowercase();
-    
-    if confirmation != "yes" && confirmation != "confirm" {
-        return Ok(ToolOutput::error(
-            format!(
-                "DELETION CANCELLED: Missing or invalid confirmation.\n\
-                Files requested for deletion: {}\n\
-                To delete, you MUST provide confirmation='yes' (exactly, case-insensitive).\n\
-                No files were deleted.",
-                input.files.len()
-            )
-        ));
-    }
-    
     // Double-check: if empty files list, warn
     if input.files.is_empty() {
         return Ok(ToolOutput::success(serde_json::json!({
@@ -115,21 +100,51 @@ pub async fn execute_delete_ingested_files(
         })));
     }
     
-    // Track deleted and failed files
+    // Step 1: Check if files were recently ingested
+    let (all_verified, unverified_files) = crate::tools::ingestor::can_delete_files(&input.files).await;
+    
+    // Step 2: Verify confirmation is EXACTLY "yes" or "confirm"
+    let confirmation = input.confirmation.trim().to_lowercase();
+    
+    if confirmation != "yes" && confirmation != "confirm" {
+        return Ok(ToolOutput::error(
+            format!(
+                "DELETION BLOCKED: Missing or invalid confirmation.\n\
+                \n\
+                Required: confirmation='yes' (exactly, case-insensitive)\n\
+                Received: confirmation='{}'\n\
+                \n\
+                Files requested: {}\n\
+                \n\
+                IMPORTANT: You MUST ask the user before calling this tool!\n\
+                Do NOT call delete_ingested_files without explicit user permission.\n\
+                \n\
+                Workflow:\n\
+                1. Call ingest_files first\n\
+                2. ASK user: 'Can I delete the original file(s)?'\n\
+                3. Only if user says YES, call this tool with confirmation='yes'",
+                input.confirmation,
+                input.files.len()
+            )
+        ));
+    }
+    
+    // Step 3: If files weren't verified, require extra confirmation
+    if !all_verified && !unverified_files.is_empty() {
+        // Files exist but weren't tracked as ingested - this is suspicious
+        // Still allow if user explicitly confirmed, but log it
+        tracing::warn!("Deleting files that weren't recently ingested: {:?}", unverified_files);
+    }
+    
+    // Step 4: Track deleted and failed files
     let mut deleted = Vec::new();
     let mut failed = Vec::new();
-    let mut parent_folders: std::collections::HashSet<String> = std::collections::HashSet::new();
     
     // Log what we're about to delete for transparency
-    tracing::info!("Delete operation starting for {} file(s)", input.files.len());
+    tracing::info!("Delete operation starting for {} file(s) with user confirmation", input.files.len());
     
     for file_path in &input.files {
         let path = Path::new(file_path);
-        
-        // Track parent folder for potential cleanup
-        if let Some(parent) = path.parent() {
-            parent_folders.insert(parent.to_string_lossy().to_string());
-        }
         
         if !path.exists() {
             tracing::warn!("File not found, skipping: {:?}", path);
@@ -164,12 +179,13 @@ pub async fn execute_delete_ingested_files(
         }
     }
     
-    // Note: Folder deletion is intentionally NOT done automatically
-    // The folder (files_to_import) should remain for future use
-    // Manual folder cleanup should be done by the user if desired
-    
+    // Step 5: Clear the ingest tracker after successful deletion
     let success = deleted.len();
     let failed_count = failed.len();
+    
+    if success > 0 {
+        crate::tools::ingestor::clear_ingest_tracker().await;
+    }
     
     Ok(ToolOutput::success(serde_json::json!({
         "deleted": deleted,
@@ -183,6 +199,11 @@ pub async fn execute_delete_ingested_files(
         } else {
             "No files were deleted.".to_string()
         },
-        "note": "The files_to_import folder was NOT deleted. It remains for future imports."
+        "verification": {
+            "files_were_ingested": all_verified,
+            "unverified_files": unverified_files.len()
+        },
+        "note": "The files_to_import folder was NOT deleted. It remains for future imports.",
+        "tracker_cleared": success > 0
     })))
 }

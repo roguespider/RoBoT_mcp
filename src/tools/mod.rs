@@ -53,6 +53,9 @@ pub mod search;
 pub mod ingestor;
 pub mod agent;
 
+/// Re-export ingest tracker functions for use in workflow
+pub use ingestor::{record_ingested_files, can_delete_files, clear_ingest_tracker};
+
 /// Global tool registry (lazily initialized)
 static TOOL_REGISTRY: std::sync::OnceLock<Arc<RwLock<ToolRegistry>>> = std::sync::OnceLock::new();
 
