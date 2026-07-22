@@ -3,7 +3,7 @@
 
 A Rust MCP (Model Context Protocol) server for Zed Editor — an AI agent with persistent memory, experience-based learning, and structured knowledge storage.
 
-> **Status:** v0.5 complete — All modules fully implemented including hypothesis graph, simulation, planner, planner module, skills, workflows, learning, CLI, and Experience Compression. Database layer solid, experience system complete, reflection services complete, evolution system added, metrics and scheduler added, MCP bridge with RMCP/MCP/ACP protocols and tools implemented.
+> **Status:** v0.6 complete — All modules fully implemented including hypothesis engine, hypothesis graph, simulation, planner, planner module, skills, workflows, learning, CLI, and Experience Compression. Database layer solid, experience system complete, reflection services complete, evolution system added, metrics and scheduler added, MCP bridge with RMCP/MCP/ACP protocols and 34 tools implemented.
 
 ---
 
@@ -617,23 +617,49 @@ Exceptions
 
 Exactly what humans do.
 
-8. Hypothesis Engine
+8. Hypothesis Engine ✅ **IMPLEMENTED**
 
-We've talked about hypotheses before.
+The Hypothesis Engine makes RoBoT capable of learning rather than merely remembering.
 
-I'd elevate it into its own subsystem.
+```
+Observation → Hypothesis → Test (Evidence) → Evaluation → Knowledge
+                    ↓
+              Supported | Refuted | Inconclusive | Superseded
+```
 
-Observation
-↓
-Hypothesis
-↓
-Test
-↓
-Evidence
-↓
-Knowledge
+**Learning Flow:**
+1. **Observation** - Record successes, failures, patterns, anomalies
+2. **Hypothesis** - Form testable statements from observations
+3. **Test** - Add supporting or contradicting evidence
+4. **Evidence** - Accumulate proof for or against hypothesis
+5. **Evaluation** - Calculate status based on evidence ratio
+6. **Knowledge** - Extract validated hypotheses into reusable knowledge
 
-That makes RoBoT capable of learning rather than merely remembering.
+**MCP Tools (9):**
+| Tool | Description |
+|------|-------------|
+| `record_observation` | Record successes, failures, patterns, anomalies |
+| `list_observations` | View recorded observations |
+| `create_hypothesis` | Form testable hypothesis from observations |
+| `get_hypothesis` | View hypothesis with all evidence |
+| `list_hypotheses` | List hypotheses (filter by domain/status) |
+| `add_evidence` | Add supporting or contradicting evidence |
+| `evaluate_hypothesis` | Evaluate based on evidence, update status |
+| `get_knowledge` | Get extracted learned knowledge |
+| `extract_knowledge` | Convert supported hypothesis → reusable knowledge |
+
+**Database Tables (Migration 008):**
+- `hypotheses` - Testable hypotheses with status and confidence
+- `observations` - Raw observations that trigger learning
+- `evidence` - Supporting/contradicting evidence for hypotheses
+- `learned_knowledge` - Extracted knowledge from validated hypotheses
+
+**Status Evaluation Rules:**
+- 3+ evidence required to evaluate
+- Supported: supporting > contradicting × 2
+- Refuted: contradicting > supporting × 2
+- Inconclusive: otherwise
+- Knowledge extraction only from Supported hypotheses
 
 9. Planner Feedback Loop
 
@@ -1031,7 +1057,7 @@ cargo build --release
 | Experience recorder | ✅ Implemented | Record/success/failure methods working with database |
 | Experience repository | ✅ Implemented | Full CRUD for encounters and experiences |
 | Reflection system | ✅ Complete | Core types, services (analyzer, generator, repository, validator), patterns |
-| Hypothesis system | ✅ Implemented | Core hypothesis with evidence, evaluation, lifecycle, services, graph, simulation, and planner |
+| Hypothesis Engine | ✅ Implemented | Observation → Hypothesis → Test → Evidence → Knowledge pipeline with 9 MCP tools and full database support |
 | Exploration system | ✅ Implemented | Exploration tracking with repository |
 | Reputation system | ✅ Implemented | Full reputation tracking with decay and analytics |
 | Evolution system | ✅ Implemented | Behavior creation from insights, tracking, promotion/deprecation |
