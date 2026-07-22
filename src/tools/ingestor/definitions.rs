@@ -13,21 +13,21 @@ pub fn all() -> Vec<McpTool> {
     vec![
         McpTool {
             name: INGEST_FILES.to_string(),
-            description: "Ingest files into memory. Use file_path for single file, or folder with limit=1 for single file from folder. Files are stored relative to the executable location (exe dir/files_to_import/)".to_string(),
+            description: "INGEST FILES INTO MEMORY. Default: folder='files_to_import' (in robot_brain.exe directory). IMPORTANT: Always use limit=1 to ingest ONE file at a time. Files are stored in robot_brain.db (same directory as exe). DO NOT batch ingest - always one file at a time.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "folder": {
                         "type": "string",
-                        "description": "Folder path relative to exe. Defaults to 'files_to_import' in exe directory. The folder should contain files_to_import with the actual files."
+                        "description": "Defaults to 'files_to_import' - it's ALREADY next to robot_brain.exe. You don't need to specify this unless using a different folder. Example: 'files_to_import'"
                     },
                     "file_path": {
                         "type": "string",
-                        "description": "SINGLE FILE MODE - Exact path to ingest one specific file. Use this OR folder+limit, not both."
+                        "description": "SINGLE FILE MODE - Ingest one specific file by full path. Example: 'C:\\robot_brain\\files_to_import\\notes.txt'"
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "MAX 1 for single file mode. Number of files to ingest from folder (default: 1). Use limit=1 to ingest ONE file at a time."
+                        "description": "ALWAYS use limit=1 for single file ingestion. Default is 1. Example: limit=1"
                     },
                     "chunk_size": {
                         "type": "integer",
@@ -37,22 +37,18 @@ pub fn all() -> Vec<McpTool> {
                         "type": "string",
                         "description": "Memory type: file, conversation, code, note (default: file)"
                     }
-                },
-                "oneOf": [
-                    {"required": ["file_path"]},
-                    {"properties": {"limit": {"const": 1}}}
-                ]
+                }
             }),
         },
         McpTool {
             name: LIST_IMPORTABLE.to_string(),
-            description: "List files ready for import from files_to_import folder (in exe directory). Shows what files are available to ingest.".to_string(),
+            description: "LIST FILES READY FOR IMPORT. Automatically looks in 'files_to_import' folder (same directory as robot_brain.exe). Returns list of files with full paths. No need to search - just call this tool.".to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
                     "folder": {
                         "type": "string",
-                        "description": "Folder path relative to exe directory. Defaults to 'files_to_import'"
+                        "description": "Leave empty - defaults to 'files_to_import' which is already next to robot_brain.exe"
                     },
                     "limit": {
                         "type": "integer",

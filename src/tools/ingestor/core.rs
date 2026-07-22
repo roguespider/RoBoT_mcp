@@ -126,9 +126,19 @@ pub async fn ingest_file(
 
     // Ingest from folder
     if !folder.exists() {
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_string_lossy().to_string()))
+            .unwrap_or_else(|| "robot_brain.exe directory".to_string());
+        
         return Ok(ToolOutput::error(format!(
-            "Import folder does not exist: {}",
-            folder.display()
+            "Import folder does not exist: {}\n\
+            \n\
+            The 'files_to_import' folder should be in: {}\n\
+            \n\
+            Create the folder and add files there, or put files_to_import next to robot_brain.exe",
+            folder.display(),
+            exe_dir
         )));
     }
 
@@ -207,6 +217,13 @@ pub async fn ingest_file(
 
     let remaining_count: usize = results.iter().map(|r| r.remaining_count).sum();
 
+    // Get folder path for reference
+    let folder_display = folder.to_string_lossy().to_string();
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_string_lossy().to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
+
     let summary = IngestSummary {
         total_files,
         successful,
@@ -218,14 +235,17 @@ pub async fn ingest_file(
     Ok(ToolOutput::success(serde_json::json!({
         "summary": summary,
         "successfully_ingested": successfully_ingested,
+        "import_folder": folder_display,
+        "exe_directory": exe_dir,
         "temp_folder": get_recent_archive_temp_folder().map(|p| p.to_string_lossy().to_string()),
         "remaining_in_temp": remaining_count,
+        "files_stored_in": format!("robot_brain.db in {}", exe_dir),
         "note": if remaining_count > 0 {
             format!("{} file(s) remaining in temp folder. Call ingest again with temp_folder path.", remaining_count)
         } else {
             "All files ingested.".to_string()
         },
-        "workflow": "1. Ingest files\n2. Review remaining_in_temp\n3. Ingest more or delete originals"
+        "workflow": "1. Ingest files\n2. Review remaining_in_temp\n3. ASK USER for confirmation before deleting originals\n4. Use delete_ingested_files with confirmation='yes' to delete originals"
     })))
 }
 

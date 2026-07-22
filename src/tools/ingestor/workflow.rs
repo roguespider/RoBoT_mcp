@@ -23,11 +23,25 @@ pub async fn execute_list_importable(
     let folder = get_import_folder(input.folder.as_deref());
     let limit = input.limit.unwrap_or(5);
     
+    // Get exe directory for reference
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    
+    let folder_display = folder.to_string_lossy().to_string();
+    let exe_dir_display = exe_dir.to_string_lossy().to_string();
+    
     if !folder.exists() {
         return Ok(ToolOutput::success(serde_json::json!({
             "files": [],
-            "folder": folder.to_string_lossy(),
-            "message": "Folder does not exist"
+            "import_folder": folder_display,
+            "exe_directory": exe_dir_display,
+            "relative_path": "files_to_import",
+            "count": 0,
+            "total": 0,
+            "message": format!("Folder does not exist at: {}. Create it or check if robot_brain.exe is in the correct location.", folder_display),
+            "hint": "The files_to_import folder should be in the same directory as robot_brain.exe"
         })));
     }
     
@@ -38,13 +52,16 @@ pub async fn execute_list_importable(
     
     Ok(ToolOutput::success(serde_json::json!({
         "files": files,
-        "folder": folder.to_string_lossy(),
+        "import_folder": folder_display,
+        "exe_directory": exe_dir_display,
+        "relative_path": "files_to_import",
         "count": files.len(),
         "total": total,
+        "instruction": "Use ingest_files with folder='files_to_import' (or omit folder parameter) and limit=1 to ingest one file at a time",
         "message": if files.is_empty() {
-            "No importable files found".to_string()
+            format!("No importable files found in {}. Add files to this folder to ingest them.", folder_display)
         } else {
-            format!("Found {} files (showing {})", total, files.len())
+            format!("Found {} file(s) ready for ingestion at: {}", total, folder_display)
         }
     })))
 }
