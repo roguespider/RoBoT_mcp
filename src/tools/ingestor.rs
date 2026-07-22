@@ -863,7 +863,8 @@ fn ingest_archive(
     let result = ingest_single_file(first_file, database, chunk_size, overlap, memory_type)?;
     
     // Delete the source file we just ingested
-    let _ = fs::remove_file(first_file);
+    // DISABLED: Files not auto-deleted - agent should ask user first
+    // let _ = fs::remove_file(first_file);
     
     // Clean up empty subfolders
     delete_empty_folders(&temp_dir);

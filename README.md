@@ -898,7 +898,7 @@ Interaction
 - Rust 2024 edition (per `Cargo.toml`)
 - SQLite3 development libraries (for `rusqlite`)
 
-### CLI Usage
+started ### CLI Usage
 
 ```bash
 # Start the MCP server (default)
