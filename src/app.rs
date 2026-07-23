@@ -129,7 +129,7 @@ impl App {
         policy_engine.load_defaults().await;
         tracing::info!("Policy engine loaded with default rules");
 
-        // Create MCP context with knowledge store
+        // Create MCP context with all systems
         let mcp_context = Arc::new(McpContext::new(
             database.clone(),
             bus.clone(),
@@ -139,6 +139,11 @@ impl App {
             scheduler.clone(),
             metrics.clone(),
             knowledge_store.clone(),
+            planner.clone(),
+            policy_engine.clone(),
+            working_memory_core.clone(),
+            permanent_memory.clone(),
+            memory_retrieval.clone(),
         ));
 
         // Register MCP tools

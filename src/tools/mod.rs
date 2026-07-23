@@ -53,6 +53,7 @@ pub mod ingestor;
 pub mod agent;
 pub mod hypothesis;
 pub mod knowledge;
+pub mod planner;
 
 /// Global tool registry (lazily initialized, using Mutex since only written once at startup)
 static TOOL_REGISTRY: std::sync::OnceLock<Arc<Mutex<ToolRegistry>>> = std::sync::OnceLock::new();
@@ -105,6 +106,10 @@ pub fn register_tools(context: &Arc<McpContext>) {
     let tools = knowledge::definitions::all();
     tracing::info!("Registered {} knowledge tools", tools.len());
     
+    // Register planner tools
+    let tools = planner::definitions::all();
+    tracing::info!("Registered {} planner tools", tools.len());
+    
     // Collect all tools
     let all_tools = memory::definitions::all()
         .into_iter()
@@ -115,6 +120,7 @@ pub fn register_tools(context: &Arc<McpContext>) {
         .chain(agent::definitions::all())
         .chain(hypothesis::definitions::all())
         .chain(knowledge::definitions::all())
+        .chain(planner::definitions::all())
         .collect();
     
     // Update registry using mutex lock

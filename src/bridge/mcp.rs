@@ -152,7 +152,6 @@ pub trait McpHandler: Send + Sync {
 }
 
 /// McpBridge context shared across handlers
-#[allow(dead_code)]
 pub struct McpContext {
     /// Database layer
     pub database: Arc<SqliteDatabase>,
@@ -178,6 +177,21 @@ pub struct McpContext {
     /// Knowledge system - manages validated knowledge
     pub knowledge: Arc<crate::knowledge::KnowledgeStore>,
     
+    /// Planner - task decomposition and execution
+    pub planner: Arc<crate::planner::Planner>,
+    
+    /// Policy engine - decision-making rules
+    pub policy: Arc<crate::planner::PolicyEngine>,
+    
+    /// Working memory - short-term memory layer
+    pub working_memory: Arc<crate::memory::WorkingMemory>,
+    
+    /// Permanent memory - long-term memory layer  
+    pub permanent_memory: Arc<crate::memory::PermanentMemory>,
+    
+    /// Memory retrieval - unified retrieval across layers
+    pub memory_retrieval: Arc<crate::memory::MemoryRetrieval>,
+    
     /// Server info
     pub server_info: McpServerInfo,
     
@@ -186,6 +200,7 @@ pub struct McpContext {
 }
 
 impl McpContext {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         database: Arc<SqliteDatabase>,
         bus: Arc<ExperienceBus>,
@@ -195,6 +210,11 @@ impl McpContext {
         scheduler: Arc<Scheduler>,
         metrics: Arc<MetricsCollector>,
         knowledge: Arc<crate::knowledge::KnowledgeStore>,
+        planner: Arc<crate::planner::Planner>,
+        policy: Arc<crate::planner::PolicyEngine>,
+        working_memory: Arc<crate::memory::WorkingMemory>,
+        permanent_memory: Arc<crate::memory::PermanentMemory>,
+        memory_retrieval: Arc<crate::memory::MemoryRetrieval>,
     ) -> Self {
         Self {
             database,
@@ -205,6 +225,11 @@ impl McpContext {
             scheduler,
             metrics,
             knowledge,
+            planner,
+            policy,
+            working_memory,
+            permanent_memory,
+            memory_retrieval,
             server_info: McpServerInfo {
                 name: env!("CARGO_PKG_NAME").to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),

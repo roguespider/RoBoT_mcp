@@ -461,4 +461,118 @@ impl McpServerHandler {
             Err(e) => Json(ToolOutput::error(e)),
         }
     }
+
+    // Knowledge tools
+    #[tool(name = "add_knowledge", description = "Add new validated knowledge to the knowledge base")]
+    async fn add_knowledge(
+        &self,
+        Parameters(input): Parameters<tools::knowledge::AddKnowledgeInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::knowledge::execute_add_knowledge(input, &self.context.knowledge).await)
+    }
+
+    #[tool(name = "query_knowledge", description = "Query the knowledge base for relevant knowledge")]
+    async fn query_knowledge(
+        &self,
+        Parameters(input): Parameters<tools::knowledge::QueryKnowledgeInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::knowledge::execute_query_knowledge(input, &self.context.knowledge).await)
+    }
+
+    #[tool(name = "record_knowledge_application", description = "Record the result of applying knowledge")]
+    async fn record_knowledge_application(
+        &self,
+        Parameters(input): Parameters<tools::knowledge::RecordKnowledgeApplicationInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::knowledge::execute_record_knowledge_application(input, &self.context.knowledge).await)
+    }
+
+    #[tool(name = "get_knowledge_stats", description = "Get statistics about the knowledge base")]
+    async fn get_knowledge_stats(
+        &self,
+        Parameters(input): Parameters<tools::knowledge::GetKnowledgeStatsInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::knowledge::execute_get_knowledge_stats(input, &self.context.knowledge).await)
+    }
+
+    #[tool(name = "get_mature_knowledge", description = "Get all mature (high-confidence) knowledge")]
+    async fn get_mature_knowledge(
+        &self,
+        Parameters(input): Parameters<tools::knowledge::GetMatureKnowledgeInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::knowledge::execute_get_mature_knowledge(input, &self.context.knowledge).await)
+    }
+
+    // Planner tools
+    #[tool(name = "create_plan", description = "Create a new plan from a goal")]
+    async fn create_plan(
+        &self,
+        Parameters(input): Parameters<tools::planner::CreatePlanInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_create_plan(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "add_plan_step", description = "Add a step to an existing plan")]
+    async fn add_plan_step(
+        &self,
+        Parameters(input): Parameters<tools::planner::AddPlanStepInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_add_plan_step(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "add_step_dependency", description = "Add a dependency between steps")]
+    async fn add_step_dependency(
+        &self,
+        Parameters(input): Parameters<tools::planner::AddStepDependencyInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_add_step_dependency(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "get_plan", description = "Get a plan by ID")]
+    async fn get_plan(
+        &self,
+        Parameters(input): Parameters<tools::planner::GetPlanInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_get_plan(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "list_plans", description = "List all active plans")]
+    async fn list_plans(
+        &self,
+        Parameters(input): Parameters<tools::planner::ListPlansInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_list_plans(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "start_plan", description = "Start executing a plan")]
+    async fn start_plan(
+        &self,
+        Parameters(input): Parameters<tools::planner::StartPlanInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_start_plan(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "complete_step", description = "Mark a step as completed")]
+    async fn complete_step(
+        &self,
+        Parameters(input): Parameters<tools::planner::CompleteStepInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_complete_step(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "fail_step", description = "Mark a step as failed")]
+    async fn fail_step(
+        &self,
+        Parameters(input): Parameters<tools::planner::FailStepInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_fail_step(input, &self.context.planner).await)
+    }
+
+    #[tool(name = "cancel_plan", description = "Cancel a plan")]
+    async fn cancel_plan(
+        &self,
+        Parameters(input): Parameters<tools::planner::CancelPlanInput>,
+    ) -> Json<ToolOutput> {
+        Json(tools::planner::execute_cancel_plan(input, &self.context.planner).await)
+    }
 }

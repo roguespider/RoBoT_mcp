@@ -57,6 +57,12 @@ pub struct GetKnowledgeStatsInput {
     // No parameters needed
 }
 
+/// Tool: Get mature knowledge
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct GetMatureKnowledgeInput {
+    pub limit: Option<usize>,
+}
+
 /// Knowledge tool definitions
 pub mod definitions {
     pub const ADD_KNOWLEDGE: &str = "add_knowledge";
@@ -330,12 +336,12 @@ pub async fn execute_get_knowledge_stats(
 
 /// Execute get mature knowledge tool
 pub async fn execute_get_mature_knowledge(
-    limit: Option<usize>,
+    input: GetMatureKnowledgeInput,
     knowledge: &Arc<KnowledgeStore>,
 ) -> ToolOutput {
     let mut mature = knowledge.get_mature().await;
     
-    if let Some(l) = limit {
+    if let Some(l) = input.limit {
         mature.truncate(l);
     }
     
