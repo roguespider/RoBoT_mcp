@@ -1226,6 +1226,32 @@ List files that have been successfully ingested and can be deleted.
 | `chunk_overlap` | 100 | Overlap between chunks |
 | `memory_type` | "file" | Type for ingested memories |
 
+### Zed Editor MCP Configuration
+
+To use RoBoT Brain as an MCP server in Zed Editor:
+
+**Settings → AI → MCP Servers → Add Local Server:**
+
+```json
+{
+  "context_servers": {
+    "robot_brain": {
+      "command": "/ABSOLUTE/PATH/TO/robot_brain",
+      "args": [],
+      "env": {}
+    }
+  }
+}
+```
+
+Replace `/ABSOLUTE/PATH/TO/robot_brain` with the actual path to the compiled binary.
+
+**Important:** The setting key is `context_servers`, NOT `mcp_servers`.
+
+**For LM Studio:** Add the server in LM Studio's MCP settings with the same configuration.
+
+---
+
 ### Build
 
 ```bash
