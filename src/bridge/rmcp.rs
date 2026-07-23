@@ -9,13 +9,34 @@ use rmcp::{
     tool_router,
     tool,
     tool_handler,
-    handler::server::wrapper::{Parameters, Json},
+    handler::server::wrapper::Parameters,
     handler::server::ServerHandler,
-    model::{ServerInfo, Implementation},
+    model::{ServerInfo, Implementation, ContentBlock, TextContent},
 };
 
 use super::mcp::McpContext;
 use crate::tools::{self, ToolOutput};
+
+/// Convert ToolOutput to MCP-compliant ContentBlock
+/// 
+/// MCP protocol requires tool responses to have a `content` array with text/image/audio blocks:
+/// ```json
+/// {
+///   "content": [
+///     {"type": "text", "text": "..."}
+///   ]
+/// }
+/// ```
+fn tool_output_to_content(output: ToolOutput) -> ContentBlock {
+    let text = if output.success {
+        serde_json::to_string_pretty(&output.data)
+            .unwrap_or_else(|_| "{\"success\": true}".to_string())
+    } else {
+        format!("Error: {}", output.error.unwrap_or_else(|| "Unknown error".to_string()))
+    };
+
+    ContentBlock::Text(TextContent::new(text))
+}
 
 /// RMCP server wrapper for MCP bridge
 pub struct RmcpServer {
@@ -86,10 +107,10 @@ impl McpServerHandler {
     async fn get_workflow(
         &self,
         Parameters(input): Parameters<tools::agent::GetWorkflowInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::agent::execute_get_workflow(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -97,10 +118,10 @@ impl McpServerHandler {
     async fn store_memory(
         &self,
         Parameters(input): Parameters<tools::memory::StoreMemoryInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::memory::execute_store_memory(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -108,10 +129,10 @@ impl McpServerHandler {
     async fn search_memory(
         &self,
         Parameters(input): Parameters<tools::memory::SearchMemoryInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::memory::execute_search_memory(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -119,10 +140,10 @@ impl McpServerHandler {
     async fn get_memory(
         &self,
         Parameters(input): Parameters<tools::memory::GetMemoryInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::memory::execute_get_memory(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -130,10 +151,10 @@ impl McpServerHandler {
     async fn list_memories(
         &self,
         Parameters(input): Parameters<tools::memory::ListMemoriesInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::memory::execute_list_memories(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -141,14 +162,14 @@ impl McpServerHandler {
     async fn record_experience(
         &self,
         Parameters(input): Parameters<tools::experience::RecordExperienceInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::experience::execute_record_experience(
             input,
             &self.context.coordinator,
             &self.context.database,
         ).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -156,10 +177,10 @@ impl McpServerHandler {
     async fn get_experience_stats(
         &self,
         Parameters(input): Parameters<tools::experience::GetExperienceStatsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::experience::execute_get_experience_stats(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -167,10 +188,10 @@ impl McpServerHandler {
     async fn list_experiences(
         &self,
         Parameters(input): Parameters<tools::experience::ListExperiencesInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::experience::execute_list_experiences(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -178,10 +199,10 @@ impl McpServerHandler {
     async fn get_experience(
         &self,
         Parameters(input): Parameters<tools::experience::GetExperienceInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::experience::execute_get_experience(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -189,10 +210,10 @@ impl McpServerHandler {
     async fn get_insights(
         &self,
         Parameters(input): Parameters<tools::reflection::GetInsightsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::reflection::execute_get_insights(input, &self.context.reflection).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -200,10 +221,10 @@ impl McpServerHandler {
     async fn create_reflection(
         &self,
         Parameters(input): Parameters<tools::reflection::CreateReflectionInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::reflection::execute_create_reflection(input, &self.context.reflection).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -211,10 +232,10 @@ impl McpServerHandler {
     async fn analyze_patterns(
         &self,
         Parameters(input): Parameters<tools::reflection::AnalyzePatternsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::reflection::execute_analyze_patterns(input, &self.context.reflection).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -222,10 +243,10 @@ impl McpServerHandler {
     async fn get_patterns(
         &self,
         Parameters(input): Parameters<tools::reflection::GetPatternsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::reflection::execute_get_patterns(input, &self.context.reflection).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -233,10 +254,10 @@ impl McpServerHandler {
     async fn global_search(
         &self,
         Parameters(input): Parameters<tools::search::GlobalSearchInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::search::execute_global_search(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -244,10 +265,10 @@ impl McpServerHandler {
     async fn get_recommendations(
         &self,
         Parameters(input): Parameters<tools::search::GetRecommendationsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::search::execute_get_recommendations(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -255,10 +276,10 @@ impl McpServerHandler {
     async fn get_reputation(
         &self,
         Parameters(input): Parameters<tools::search::GetReputationInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::search::execute_get_reputation(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -266,10 +287,10 @@ impl McpServerHandler {
     async fn ingest_files(
         &self,
         Parameters(input): Parameters<tools::ingestor::IngestFilesInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::ingestor::ingest_file(input, Arc::clone(&self.context.database)).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -277,10 +298,10 @@ impl McpServerHandler {
     async fn list_importable(
         &self,
         Parameters(input): Parameters<tools::ingestor::ListImportableInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::ingestor::execute_list_importable(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -288,10 +309,10 @@ impl McpServerHandler {
     async fn transcribe_audio(
         &self,
         Parameters(input): Parameters<tools::ingestor::TranscribeAudioInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::ingestor::execute_transcribe_audio(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -299,10 +320,10 @@ impl McpServerHandler {
     async fn list_ingested_files(
         &self,
         Parameters(input): Parameters<tools::ingestor::ListIngestedFilesInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::ingestor::execute_list_ingested_files(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -310,10 +331,10 @@ impl McpServerHandler {
     async fn delete_ingested_files(
         &self,
         Parameters(input): Parameters<tools::ingestor::DeleteIngestedFilesInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::ingestor::execute_delete_ingested_files(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -321,10 +342,10 @@ impl McpServerHandler {
     async fn list_tools(
         &self,
         Parameters(input): Parameters<tools::agent::ListToolsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::agent::execute_list_tools(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -332,10 +353,10 @@ impl McpServerHandler {
     async fn get_tool(
         &self,
         Parameters(input): Parameters<tools::agent::GetToolInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::agent::execute_get_tool(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -343,10 +364,10 @@ impl McpServerHandler {
     async fn connect_mcp_server(
         &self,
         Parameters(input): Parameters<tools::agent::ConnectMcpServerInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::agent::execute_connect_mcp_server(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -354,10 +375,10 @@ impl McpServerHandler {
     async fn call_tool(
         &self,
         Parameters(input): Parameters<tools::agent::CallMcpToolInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::agent::execute_call_mcp_tool(input).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -370,10 +391,10 @@ impl McpServerHandler {
     async fn record_observation(
         &self,
         Parameters(input): Parameters<tools::hypothesis::RecordObservationInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_record_observation(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -381,10 +402,10 @@ impl McpServerHandler {
     async fn create_hypothesis(
         &self,
         Parameters(input): Parameters<tools::hypothesis::CreateHypothesisInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_create_hypothesis(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -392,10 +413,10 @@ impl McpServerHandler {
     async fn add_evidence(
         &self,
         Parameters(input): Parameters<tools::hypothesis::AddEvidenceInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_add_evidence(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -403,10 +424,10 @@ impl McpServerHandler {
     async fn get_hypothesis(
         &self,
         Parameters(input): Parameters<tools::hypothesis::GetHypothesisInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_get_hypothesis(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -414,10 +435,10 @@ impl McpServerHandler {
     async fn list_hypotheses(
         &self,
         Parameters(input): Parameters<tools::hypothesis::ListHypothesesInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_list_hypotheses(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -425,10 +446,10 @@ impl McpServerHandler {
     async fn list_observations(
         &self,
         Parameters(input): Parameters<tools::hypothesis::ListObservationsInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_list_observations(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -436,10 +457,10 @@ impl McpServerHandler {
     async fn evaluate_hypothesis(
         &self,
         Parameters(input): Parameters<tools::hypothesis::EvaluateHypothesisInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_evaluate_hypothesis(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -447,10 +468,10 @@ impl McpServerHandler {
     async fn get_knowledge(
         &self,
         Parameters(input): Parameters<tools::hypothesis::GetKnowledgeInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_get_knowledge(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -458,10 +479,10 @@ impl McpServerHandler {
     async fn extract_knowledge(
         &self,
         Parameters(input): Parameters<tools::hypothesis::ExtractKnowledgeInput>,
-    ) -> Json<ToolOutput> {
+    ) -> ContentBlock {
         match tools::hypothesis::execute_extract_knowledge(input, &self.context.database).await {
-            Ok(result) => Json(result),
-            Err(e) => Json(ToolOutput::error(e)),
+            Ok(result) => tool_output_to_content(result),
+            Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
@@ -470,40 +491,40 @@ impl McpServerHandler {
     async fn add_knowledge(
         &self,
         Parameters(input): Parameters<tools::knowledge::AddKnowledgeInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::knowledge::execute_add_knowledge(input, &self.context.knowledge).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::knowledge::execute_add_knowledge(input, &self.context.knowledge).await)
     }
 
     #[tool(name = "query_knowledge", description = "Query the knowledge base for relevant knowledge")]
     async fn query_knowledge(
         &self,
         Parameters(input): Parameters<tools::knowledge::QueryKnowledgeInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::knowledge::execute_query_knowledge(input, &self.context.knowledge).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::knowledge::execute_query_knowledge(input, &self.context.knowledge).await)
     }
 
     #[tool(name = "record_knowledge_application", description = "Record the result of applying knowledge")]
     async fn record_knowledge_application(
         &self,
         Parameters(input): Parameters<tools::knowledge::RecordKnowledgeApplicationInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::knowledge::execute_record_knowledge_application(input, &self.context.knowledge).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::knowledge::execute_record_knowledge_application(input, &self.context.knowledge).await)
     }
 
     #[tool(name = "get_knowledge_stats", description = "Get statistics about the knowledge base")]
     async fn get_knowledge_stats(
         &self,
         Parameters(input): Parameters<tools::knowledge::GetKnowledgeStatsInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::knowledge::execute_get_knowledge_stats(input, &self.context.knowledge).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::knowledge::execute_get_knowledge_stats(input, &self.context.knowledge).await)
     }
 
     #[tool(name = "get_mature_knowledge", description = "Get all mature (high-confidence) knowledge")]
     async fn get_mature_knowledge(
         &self,
         Parameters(input): Parameters<tools::knowledge::GetMatureKnowledgeInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::knowledge::execute_get_mature_knowledge(input, &self.context.knowledge).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::knowledge::execute_get_mature_knowledge(input, &self.context.knowledge).await)
     }
 
     // Planner tools
@@ -511,72 +532,72 @@ impl McpServerHandler {
     async fn create_plan(
         &self,
         Parameters(input): Parameters<tools::planner::CreatePlanInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_create_plan(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_create_plan(input, &self.context.planner).await)
     }
 
     #[tool(name = "add_plan_step", description = "Add a step to an existing plan")]
     async fn add_plan_step(
         &self,
         Parameters(input): Parameters<tools::planner::AddPlanStepInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_add_plan_step(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_add_plan_step(input, &self.context.planner).await)
     }
 
     #[tool(name = "add_step_dependency", description = "Add a dependency between steps")]
     async fn add_step_dependency(
         &self,
         Parameters(input): Parameters<tools::planner::AddStepDependencyInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_add_step_dependency(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_add_step_dependency(input, &self.context.planner).await)
     }
 
     #[tool(name = "get_plan", description = "Get a plan by ID")]
     async fn get_plan(
         &self,
         Parameters(input): Parameters<tools::planner::GetPlanInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_get_plan(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_get_plan(input, &self.context.planner).await)
     }
 
     #[tool(name = "list_plans", description = "List all active plans")]
     async fn list_plans(
         &self,
         Parameters(input): Parameters<tools::planner::ListPlansInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_list_plans(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_list_plans(input, &self.context.planner).await)
     }
 
     #[tool(name = "start_plan", description = "Start executing a plan")]
     async fn start_plan(
         &self,
         Parameters(input): Parameters<tools::planner::StartPlanInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_start_plan(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_start_plan(input, &self.context.planner).await)
     }
 
     #[tool(name = "complete_step", description = "Mark a step as completed")]
     async fn complete_step(
         &self,
         Parameters(input): Parameters<tools::planner::CompleteStepInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_complete_step(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_complete_step(input, &self.context.planner).await)
     }
 
     #[tool(name = "fail_step", description = "Mark a step as failed")]
     async fn fail_step(
         &self,
         Parameters(input): Parameters<tools::planner::FailStepInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_fail_step(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_fail_step(input, &self.context.planner).await)
     }
 
     #[tool(name = "cancel_plan", description = "Cancel a plan")]
     async fn cancel_plan(
         &self,
         Parameters(input): Parameters<tools::planner::CancelPlanInput>,
-    ) -> Json<ToolOutput> {
-        Json(tools::planner::execute_cancel_plan(input, &self.context.planner).await)
+    ) -> ContentBlock {
+        tool_output_to_content(tools::planner::execute_cancel_plan(input, &self.context.planner).await)
     }
 }
 
