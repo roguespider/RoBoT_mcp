@@ -12,7 +12,10 @@ use crate::experience::metrics::MetricsCollector;
 use crate::experience::reflection::ReflectionEngine;
 use crate::experience::scheduler::{Scheduler, TaskSchedule, TaskType};
 use crate::experience::scorer::ExperienceScorer;
+use crate::knowledge::KnowledgeStore;
 use crate::learning::{WorkingMemory, LineageTracker};
+use crate::memory::{MemoryRetrieval, WorkingMemory as MemWorkingMemory, PermanentMemory};
+use crate::planner::{Planner, PolicyEngine};
 use crate::bridge::mcp::McpContext;
 use crate::bridge::mcp::McpClient;
 use crate::bridge::rmcp::run_stdio_server;
@@ -52,13 +55,28 @@ pub struct App {
     /// MCP context shared with bridge.
     mcp_context: Arc<McpContext>,
 
-    /// Working memory for short-term memory items.
+    /// Working memory for short-term memory items (Architecture §6.3).
     #[allow(dead_code)]
     working_memory: Arc<WorkingMemory>,
 
     /// Lineage tracker for memory relationships.
     #[allow(dead_code)]
     lineage_tracker: Arc<LineageTracker>,
+
+    /// Knowledge system - manages validated knowledge.
+    #[allow(dead_code)]
+    knowledge_store: Arc<KnowledgeStore>,
+
+    /// Memory system - Working and Permanent Memory (Architecture §4.08, §6.3).
+    working_memory_core: Arc<MemWorkingMemory>,
+    permanent_memory: Arc<PermanentMemory>,
+    memory_retrieval: Arc<MemoryRetrieval>,
+
+    /// Planning system - task decomposition and execution (Architecture §4.03.5, §10)
+    planner: Arc<Planner>,
+
+    /// Policy engine - decision-making rules (Architecture §4.03.5)
+    policy_engine: Arc<PolicyEngine>,
 }
 
 
@@ -78,9 +96,19 @@ impl App {
         let reflection_engine = Arc::new(ReflectionEngine::new());
         let evolution_engine = Arc::new(EvolutionEngine::new());
         
-        // Create working memory and lineage tracker
+        // Create working memory, lineage tracker, and knowledge store
         let working_memory = Arc::new(WorkingMemory::new(1000));
         let lineage_tracker = Arc::new(LineageTracker::new());
+        let knowledge_store = Arc::new(KnowledgeStore::new(10000));
+        
+        // Create memory system - Working and Permanent Memory (Architecture §6.3)
+        let working_memory_core = Arc::new(MemWorkingMemory::new(1000));
+        let permanent_memory = Arc::new(PermanentMemory::new(10000));
+        let memory_retrieval = Arc::new(MemoryRetrieval::new(
+            working_memory_core.clone(),
+            permanent_memory.clone(),
+        ));
+        tracing::info!("Memory system initialized (Working: 1000, Permanent: 10000)");
         
         // Create scheduler with background tasks
         let scheduler = Self::setup_scheduler(database.clone()).await?;
@@ -88,7 +116,15 @@ impl App {
         // Create metrics collector
         let metrics = Arc::new(MetricsCollector::new());
 
-        // Create MCP context
+        // Create planning system (Architecture §4.03.5, §10)
+        let planner = Arc::new(Planner::new(metrics.clone()));
+        let policy_engine = Arc::new(PolicyEngine::new());
+        
+        // Load default policy rules
+        policy_engine.load_defaults().await;
+        tracing::info!("Policy engine loaded with default rules");
+
+        // Create MCP context with knowledge store
         let mcp_context = Arc::new(McpContext::new(
             database.clone(),
             bus.clone(),
@@ -97,6 +133,7 @@ impl App {
             evolution_engine.clone(),
             scheduler.clone(),
             metrics.clone(),
+            knowledge_store.clone(),
         ));
 
         // Register MCP tools
@@ -118,6 +155,12 @@ impl App {
             mcp_context,
             working_memory,
             lineage_tracker,
+            knowledge_store,
+            working_memory_core,
+            permanent_memory,
+            memory_retrieval,
+            planner,
+            policy_engine,
         })
     }
 

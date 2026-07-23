@@ -13,6 +13,8 @@ mod planner;
 mod skills;
 mod workflows;
 mod learning;
+mod knowledge;
+mod memory;
 
 mod cli;
 
