@@ -9,15 +9,16 @@
 //! - Confidence weighted
 //! - Relationship aware
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use super::types::{MemoryItem, MemoryLayer, MemoryStatus, MemoryType};
+use super::types::{MemoryItem, MemoryStatus, MemoryType};
 
 /// Permanent memory statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,6 +247,7 @@ impl Default for PermanentMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::memory::types::MemoryLayer;
 
     #[tokio::test]
     async fn test_store_and_retrieve() {

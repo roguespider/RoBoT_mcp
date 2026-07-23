@@ -68,14 +68,19 @@ pub struct App {
     knowledge_store: Arc<KnowledgeStore>,
 
     /// Memory system - Working and Permanent Memory (Architecture §4.08, §6.3).
+    #[allow(dead_code)]
     working_memory_core: Arc<MemWorkingMemory>,
+    #[allow(dead_code)]
     permanent_memory: Arc<PermanentMemory>,
+    #[allow(dead_code)]
     memory_retrieval: Arc<MemoryRetrieval>,
 
     /// Planning system - task decomposition and execution (Architecture §4.03.5, §10)
+    #[allow(dead_code)]
     planner: Arc<Planner>,
 
     /// Policy engine - decision-making rules (Architecture §4.03.5)
+    #[allow(dead_code)]
     policy_engine: Arc<PolicyEngine>,
 }
 

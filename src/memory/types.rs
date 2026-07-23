@@ -1,6 +1,8 @@
 // src/memory/types.rs
 //! Memory types - Per Architecture §4.08, §6.3
 
+#![allow(dead_code)]
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
