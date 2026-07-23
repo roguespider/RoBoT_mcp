@@ -305,6 +305,7 @@ pub async fn record_observation(db: &Arc<SqliteDatabase>, obs: &Observation) -> 
 }
 
 /// Get observation by ID
+#[allow(dead_code)]
 pub async fn get_observation_by_id(db: &Arc<SqliteDatabase>, id: &Uuid) -> Result<Option<Observation>> {
     let conn = db.connection()?;
     let mut stmt = conn.prepare(

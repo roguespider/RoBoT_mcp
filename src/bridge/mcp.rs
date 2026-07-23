@@ -1,5 +1,8 @@
 // src/bridge/mcp.rs
 // MCP (Model Context Protocol) core types and traits
+// 
+// NOTE: Some types in this file are defined for protocol completeness and
+// may be used in future MCP implementations. They are marked with #[allow(dead_code)].
 
 use std::sync::Arc;
 
@@ -15,9 +18,11 @@ use crate::experience::reflection::ReflectionEngine;
 use crate::experience::scheduler::Scheduler;
 
 /// MCP protocol version
+#[allow(dead_code)]
 pub const MCP_VERSION: &str = "2024-11-05";
 
 /// MCP message types
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum McpMessage {
@@ -27,6 +32,7 @@ pub enum McpMessage {
 }
 
 /// MCP request message
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpRequest {
     pub method: String,
@@ -35,6 +41,7 @@ pub struct McpRequest {
 }
 
 /// MCP response message
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpResponse {
     pub result: Option<serde_json::Value>,
@@ -43,6 +50,7 @@ pub struct McpResponse {
 }
 
 /// MCP error
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpError {
     pub code: i32,
@@ -51,6 +59,7 @@ pub struct McpError {
 }
 
 /// MCP notification message
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpNotification {
     pub method: String,
@@ -66,6 +75,7 @@ pub struct McpTool {
 }
 
 /// Resource definition for MCP
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpResource {
     pub uri: String,
@@ -75,6 +85,7 @@ pub struct McpResource {
 }
 
 /// Prompt definition for MCP
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpPrompt {
     pub name: String,
@@ -83,6 +94,7 @@ pub struct McpPrompt {
 }
 
 /// Argument for a prompt
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpPromptArgument {
     pub name: String,
@@ -91,6 +103,7 @@ pub struct McpPromptArgument {
 }
 
 /// Initialize request parameters
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitializeParams {
     pub protocol_version: String,
@@ -123,6 +136,7 @@ pub struct McpResourcesCapability {
 }
 
 /// Client information
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpClientInfo {
     pub name: String,
@@ -136,7 +150,8 @@ pub struct McpServerInfo {
     pub version: String,
 }
 
-/// Trait for MCP protocol handlers
+/// Trait for MCP protocol handlers (defined for protocol completeness)
+#[allow(dead_code)]
 pub trait McpHandler: Send + Sync {
     /// Handle an MCP request
     fn handle_request(&self, request: McpRequest) -> Result<McpResponse>;
@@ -152,6 +167,10 @@ pub trait McpHandler: Send + Sync {
 }
 
 /// McpBridge context shared across handlers
+/// 
+/// NOTE: Fields are stored for passing to handlers. Some fields like server_info
+/// and capabilities are set but accessed via the struct rather than read directly.
+#[allow(dead_code)]
 pub struct McpContext {
     /// Database layer
     pub database: Arc<SqliteDatabase>,
@@ -358,6 +377,7 @@ impl McpClient {
     }
 
     /// Get a specific tool by name
+    #[allow(dead_code)]
     pub async fn get_tool(&self, name: &str) -> Option<Tool> {
         let servers = self.servers.read().await;
         for server in servers.iter() {

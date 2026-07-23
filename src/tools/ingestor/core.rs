@@ -86,6 +86,7 @@ impl IngestTracker {
     }
     
     /// Check if we can verify deletion (means a recent ingest happened)
+    #[allow(dead_code)]
     pub fn can_verify_deletion(&self) -> bool {
         match self.last_ingest_time {
             Some(time) => time.elapsed() < Duration::from_secs(300), // 5 minute window

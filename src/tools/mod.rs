@@ -1,8 +1,6 @@
 // src/tools/mod.rs
 // MCP tools for Zed Editor integration
 
-#![allow(dead_code)]
-
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +38,7 @@ impl ToolOutput {
     }
 
     /// Create a successful output from a value that can be converted to JSON
+    #[allow(dead_code)]
     pub fn from_value<T: Serialize>(value: T) -> Result<Self, serde_json::Error> {
         Ok(Self::success(serde_json::to_value(value)?))
     }
@@ -139,7 +138,6 @@ pub fn get_tools() -> Vec<crate::bridge::mcp::McpTool> {
 }
 
 /// Get all registered tools (async version for use inside async context)
-#[allow(dead_code)]
 pub async fn get_tools_async() -> Vec<crate::bridge::mcp::McpTool> {
     // Use blocking lock inside async context (safe since it's only read)
     let registry = TOOL_REGISTRY.get().expect("Tool registry should be initialized by register_tools()");

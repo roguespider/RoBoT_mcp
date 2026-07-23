@@ -180,7 +180,6 @@ impl Default for ReflectionAnalyzer {
 
 /// Quality indicators for a reflection
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ReflectionQualityIndicators {
     pub has_description: bool,
     pub has_summary: bool,

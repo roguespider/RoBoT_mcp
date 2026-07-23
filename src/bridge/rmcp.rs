@@ -14,18 +14,6 @@ use rmcp::{
 use super::mcp::McpContext;
 use crate::tools::{self, ToolOutput};
 
-/// RMCP server wrapper for MCP bridge
-pub struct RmcpServer {
-    context: Arc<McpContext>,
-}
-
-impl RmcpServer {
-    /// Get the shared context
-    pub fn context(&self) -> Arc<McpContext> {
-        Arc::clone(&self.context)
-    }
-}
-
 /// Create a new RMCP server with stdio transport
 pub async fn run_stdio_server(
     name: &str,
@@ -36,8 +24,8 @@ pub async fn run_stdio_server(
     
     let handler = McpServerHandler {
         context,
-        name: name.to_string(),
-        version: version.to_string(),
+        _name: name.to_string(),
+        _version: version.to_string(),
     };
     
     // Log the tools that will be exposed
@@ -67,14 +55,10 @@ pub async fn run_stdio_server(
 #[derive(Clone)]
 struct McpServerHandler {
     context: Arc<McpContext>,
-    name: String,
-    version: String,
-}
-
-impl McpServerHandler {
-    fn new(context: Arc<McpContext>, name: String, version: String) -> Self {
-        Self { context, name, version }
-    }
+    #[allow(dead_code)]
+    _name: String,
+    #[allow(dead_code)]
+    _version: String,
 }
 
 #[tool_router(server_handler)]

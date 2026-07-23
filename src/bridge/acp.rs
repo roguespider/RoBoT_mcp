@@ -1,5 +1,8 @@
 // src/bridge/acp.rs
 // ACP (Agent Communication Protocol) for agent-to-agent communication
+//
+// NOTE: ACP types are defined for future agent-to-agent communication support.
+// Currently not used but will be needed for multi-agent scenarios.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -8,6 +11,7 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 /// ACP message envelope
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AcpMessage {
     pub id: String,
@@ -20,6 +24,7 @@ pub struct AcpMessage {
     pub reply_to: Option<String>,
 }
 
+#[allow(dead_code)]
 impl AcpMessage {
     /// Create a new ACP message
     pub fn new(sender: AcpAgentId, receiver: AcpAgentId, message_type: AcpMessageType, payload: serde_json::Value) -> Self {
@@ -50,12 +55,14 @@ impl AcpMessage {
 }
 
 /// Agent identifier
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AcpAgentId {
     pub agent_type: String,
     pub instance_id: String,
 }
 
+#[allow(dead_code)]
 impl AcpAgentId {
     /// Create a new agent ID
     pub fn new(agent_type: &str, instance_id: &str) -> Self {
@@ -86,6 +93,7 @@ impl std::fmt::Display for AcpAgentId {
 }
 
 /// ACP message types
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AcpMessageType {
@@ -109,6 +117,7 @@ pub enum AcpMessageType {
     Publish,
 }
 
+#[allow(dead_code)]
 impl AcpMessageType {
     /// Get the reply message type for this message type
     pub fn reply_type(&self) -> Self {
@@ -122,6 +131,7 @@ impl AcpMessageType {
 }
 
 /// ACP protocol errors
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AcpError {
     pub code: AcpErrorCode,
@@ -129,6 +139,7 @@ pub struct AcpError {
     pub details: Option<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 impl AcpError {
     pub fn new(code: AcpErrorCode, message: &str) -> Self {
         Self {
@@ -145,6 +156,7 @@ impl AcpError {
 }
 
 /// ACP error codes
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AcpErrorCode {
@@ -158,6 +170,7 @@ pub enum AcpErrorCode {
 }
 
 /// ACP channel for sending and receiving messages
+#[allow(dead_code)]
 pub trait AcpChannel: Send + Sync {
     /// Send a message through the channel
     fn send(&self, message: AcpMessage) -> Result<()>;
@@ -170,6 +183,7 @@ pub trait AcpChannel: Send + Sync {
 }
 
 /// ACP agent trait
+#[allow(dead_code)]
 pub trait AcpAgent: Send + Sync {
     /// Get the agent's ID
     fn id(&self) -> &AcpAgentId;
@@ -182,6 +196,7 @@ pub trait AcpAgent: Send + Sync {
 }
 
 /// Agent capability description
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AcpCapability {
     pub name: String,
@@ -191,10 +206,12 @@ pub struct AcpCapability {
 }
 
 /// ACP registry for agent discovery
+#[allow(dead_code)]
 pub struct AcpRegistry {
     agents: std::sync::RwLock<std::collections::HashMap<AcpAgentId, Arc<dyn AcpAgent>>>,
 }
 
+#[allow(dead_code)]
 impl AcpRegistry {
     pub fn new() -> Self {
         Self {
@@ -236,10 +253,12 @@ impl Default for AcpRegistry {
 }
 
 /// ACP router for routing messages between agents
+#[allow(dead_code)]
 pub struct AcpRouter {
     registry: Arc<AcpRegistry>,
 }
 
+#[allow(dead_code)]
 impl AcpRouter {
     pub fn new(registry: Arc<AcpRegistry>) -> Self {
         Self { registry }

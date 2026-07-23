@@ -25,62 +25,53 @@ use crate::tools;
 /// Root application container.
 ///
 /// Owns long-running services required by RoBoT.
+/// 
+/// NOTE: Fields are stored for their lifetime/side effects - services are used
+/// via McpContext. The Arc references keep services alive for the app's duration.
+#[allow(dead_code)]
 pub struct App {
     /// Persistent database layer.
     _database: Arc<SqliteDatabase>,
 
     /// Event bus for pub/sub.
-    #[allow(dead_code)]
     bus: Arc<ExperienceBus>,
 
     /// Experience system coordinator.
-    #[allow(dead_code)]
     coordinator: Arc<ExperienceCoordinator>,
 
     /// Reflection engine for learning from experiences.
-    #[allow(dead_code)]
     reflection_engine: Arc<ReflectionEngine>,
 
     /// Evolution engine for behavior management.
-    #[allow(dead_code)]
     evolution_engine: Arc<EvolutionEngine>,
 
     /// Background task scheduler.
     scheduler: Arc<Scheduler>,
 
     /// Metrics collector.
-    #[allow(dead_code)]
     metrics: Arc<MetricsCollector>,
 
     /// MCP context shared with bridge.
     mcp_context: Arc<McpContext>,
 
     /// Working memory for short-term memory items (Architecture §6.3).
-    #[allow(dead_code)]
     working_memory: Arc<WorkingMemory>,
 
     /// Lineage tracker for memory relationships.
-    #[allow(dead_code)]
     lineage_tracker: Arc<LineageTracker>,
 
     /// Knowledge system - manages validated knowledge.
-    #[allow(dead_code)]
     knowledge_store: Arc<KnowledgeStore>,
 
     /// Memory system - Working and Permanent Memory (Architecture §4.08, §6.3).
-    #[allow(dead_code)]
     working_memory_core: Arc<MemWorkingMemory>,
-    #[allow(dead_code)]
     permanent_memory: Arc<PermanentMemory>,
-    #[allow(dead_code)]
     memory_retrieval: Arc<MemoryRetrieval>,
 
     /// Planning system - task decomposition and execution (Architecture §4.03.5, §10)
-    #[allow(dead_code)]
     planner: Arc<Planner>,
 
     /// Policy engine - decision-making rules (Architecture §4.03.5)
-    #[allow(dead_code)]
     policy_engine: Arc<PolicyEngine>,
 }
 
