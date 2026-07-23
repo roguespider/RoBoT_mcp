@@ -1230,26 +1230,23 @@ List files that have been successfully ingested and can be deleted.
 
 To use RoBoT Brain as an MCP server in Zed Editor:
 
-**Settings → Zed Settings → Edit settings.json:**
+**Settings → AI → MCP Servers → Add Local Server:**
 
 ```json
 {
-  "assistant": {
-    "version": "1.0.0"
-  },
-  "experimental": {
-    "assistant": true
-  },
-  "mcp_servers": {
+  "context_servers": {
     "robot_brain": {
       "command": "/ABSOLUTE/PATH/TO/robot_brain",
-      "args": []
+      "args": [],
+      "env": {}
     }
   }
 }
 ```
 
 Replace `/ABSOLUTE/PATH/TO/robot_brain` with the actual path to the compiled binary.
+
+**Important:** The setting key is `context_servers`, NOT `mcp_servers`.
 
 **For LM Studio:** Add the server in LM Studio's MCP settings with the same configuration.
 
