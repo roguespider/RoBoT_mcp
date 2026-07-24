@@ -1,28 +1,19 @@
 // src/main.rs
 
-mod app;
-mod logging;
-
 mod database;
 mod experience;
-
 mod bridge;
 mod tools;
-
 mod planner;
 mod skills;
 mod workflows;
 mod learning;
 mod knowledge;
 mod memory;
-
 mod cli;
 
-#[cfg(target_os = "windows")]
-mod windows_console;
-
-use app::App;
-use logging::init_logging;
+use bridge::app::App;
+use bridge::logging::init_logging;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -31,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     // subprocesses without a console, causing stdio to fail
     #[cfg(target_os = "windows")]
     {
-        windows_console::attach_console();
+        bridge::windows_console::attach_console();
     }
     
     init_logging();
