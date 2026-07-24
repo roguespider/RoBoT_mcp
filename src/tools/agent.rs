@@ -170,42 +170,56 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                     "step": 2,
                     "tool": "list_importable",
                     "action": "Check available files in files_to_import folder",
-                    "description": "Lists files ready for ingestion. Default folder is 'files_to_import' in exe directory."
+                    "parameters": {"recursive": true},
+                    "description": "Lists files ready for ingestion. Use recursive=true to include subfolders. Files with skip_reason are NOT ingestible (size limits, embedding patterns)."
                 },
                 {
                     "step": 3,
                     "tool": "ingest_files",
                     "action": "Ingest ONE file at a time",
-                    "parameters": {"limit": 1},
+                    "parameters": {"limit": 1, "recursive": true},
                     "description": "Use limit=1 for single file. NEVER batch ingest without explicit instruction."
                 },
                 {
                     "step": 4,
+                    "tool": "check response.NEXT_ACTION",
+                    "action": "Follow the NEXT_ACTION in the response",
+                    "description": "The ingest response includes a 'NEXT_ACTION' field telling you what to do next."
+                },
+                {
+                    "step": 5,
                     "tool": "search_memory",
                     "action": "Verify ingestion in memory",
                     "description": "Search to confirm file was stored correctly."
                 },
                 {
-                    "step": 5,
+                    "step": 6,
                     "tool": "ASK USER",
-                    "action": "Ask for confirmation before deletion",
+                    "action": "Follow the NEXT_ACTION guidance - typically ask for deletion permission",
                     "description": "NEVER delete without explicit user confirmation!"
                 },
                 {
-                    "step": 6,
+                    "step": 7,
                     "tool": "delete_ingested_files",
-                    "action": "Delete original file only after confirmation",
+                    "action": "Delete original file only after user confirmation",
                     "parameters": {"confirmation": "yes"},
-                    "description": "confirmation MUST be 'yes' (exactly). Folder is NOT deleted automatically."
+                    "description": "Use files from 'files_ready_for_deletion' in the ingest response. confirmation MUST be 'yes' (exactly)."
                 }
             ],
             "critical_rules": [
                 "ALWAYS use limit=1 for single file ingestion",
                 "NEVER batch ingest without explicit user instruction",
+                "ALWAYS follow the NEXT_ACTION in ingest response",
                 "ALWAYS ask user before calling delete_ingested_files",
                 "confirmation parameter MUST be exactly 'yes'",
                 "Folders are NOT deleted - only files",
                 "files_to_import is relative to executable location"
+            ],
+            "files_that_are_skipped": [
+                "JSON files >10MB (embedding/metadata files don't chunk well)",
+                "Text files >50MB (size limit to prevent timeouts)",
+                "Files matching patterns: embeddings, vectors, chroma, pinecone, faiss, metadata, etc.",
+                "Files already ingested (tracked in memory, not offered again)"
             ],
             "common_mistakes_to_avoid": [
                 "Calling ingest_files without limit=1 (causes batch ingest)",

@@ -36,6 +36,10 @@ pub fn all() -> Vec<McpTool> {
                     "memory_type": {
                         "type": "string",
                         "description": "Memory type: file, conversation, code, note (default: file)"
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "Search subfolders recursively (default: false). Set to true to include files in subdirectories."
                     }
                 }
             }),
@@ -53,6 +57,10 @@ pub fn all() -> Vec<McpTool> {
                     "limit": {
                         "type": "integer",
                         "description": "Max files to return (default: 5)"
+                    },
+                    "recursive": {
+                        "type": "boolean",
+                        "description": "Search subfolders recursively (default: false). Set to true to include files in subdirectories."
                     }
                 }
             }),

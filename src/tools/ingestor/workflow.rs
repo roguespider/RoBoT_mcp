@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::Result;
 
 use crate::tools::ToolOutput;
-use crate::tools::ingestor::file_collector::{collect_importable_files, get_import_folder};
+use crate::tools::ingestor::file_collector::{collect_importable_files, collect_importable_files_with_recursive, get_import_folder, ImportableFile};
 
 use super::ListImportableInput;
 use super::ListIngestedFilesInput;
@@ -22,6 +22,7 @@ pub async fn execute_list_importable(
 ) -> Result<ToolOutput> {
     let folder = get_import_folder(input.folder.as_deref());
     let limit = input.limit.unwrap_or(5);
+    let recursive = input.recursive.unwrap_or(false);
     
     // Get exe directory for reference
     let exe_dir = std::env::current_exe()
@@ -40,16 +41,28 @@ pub async fn execute_list_importable(
             "relative_path": "files_to_import",
             "count": 0,
             "total": 0,
+            "recursive": recursive,
             "message": format!("Folder does not exist at: {}. Create it or check if robot_brain.exe is in the correct location.", folder_display),
             "hint": "The files_to_import folder should be in the same directory as robot_brain.exe"
         })));
     }
     
-    let files = collect_importable_files(&folder)?;
-    let files: Vec<_> = files.into_iter().take(limit).collect();
+    // Get all files based on recursive setting
+    let all_files = if recursive {
+        collect_importable_files_with_recursive(&folder, true)?
+    } else {
+        collect_importable_files(&folder)?
+    };
     
-    let total = collect_importable_files(&folder)?.len();
+    // Separate files into ingestable and skipped
+    let (ingestable, skipped): (Vec<_>, Vec<_>) = all_files
+        .into_iter()
+        .partition(|f| f.skip_reason.is_none());
     
+    let total = ingestable.len();
+    let files: Vec<_> = ingestable.into_iter().take(limit).collect();
+    
+    // Build response with clear separation
     Ok(ToolOutput::success(serde_json::json!({
         "files": files,
         "import_folder": folder_display,
@@ -57,11 +70,21 @@ pub async fn execute_list_importable(
         "relative_path": "files_to_import",
         "count": files.len(),
         "total": total,
+        "recursive": recursive,
         "instruction": "Use ingest_files with folder='files_to_import' (or omit folder parameter) and limit=1 to ingest one file at a time",
-        "message": if files.is_empty() {
+        "message": if files.is_empty() && skipped.is_empty() {
             format!("No importable files found in {}. Add files to this folder to ingest them.", folder_display)
+        } else if files.is_empty() {
+            format!("All files in {} have issues (see 'skipped' list).", folder_display)
         } else {
             format!("Found {} file(s) ready for ingestion at: {}", total, folder_display)
+        },
+        "skipped": skipped,
+        "skipped_count": skipped.len(),
+        "skip_reasons": {
+            "embedding_files": "Files with embeddings/metadata patterns (e.g., 'embeddings.json', 'vectors.json') are skipped - these don't chunk well",
+            "size_limits": "JSON files >10MB and text files >50MB are skipped to prevent timeouts",
+            "note": "Use recursive=true to search subfolders"
         }
     })))
 }

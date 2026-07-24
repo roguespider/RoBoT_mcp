@@ -19,7 +19,7 @@ use crate::tools::ingestor::archive_handler::{
     create_archive_temp_dir, delete_empty_folders,
     get_recent_archive_temp_folder, process_archive,
 };
-use crate::tools::ingestor::file_collector::{collect_all_files_recursive, collect_importable_files, get_import_folder};
+use crate::tools::ingestor::file_collector::{collect_all_files_recursive, collect_importable_files, collect_importable_files_with_recursive, get_import_folder};
 use crate::tools::ingestor::text_extractor::{chunk_text, extract_text};
 
 // Re-export for convenience (via parent module)
@@ -164,6 +164,8 @@ pub struct IngestFilesInput {
     /// Timeout in seconds for the entire ingestion operation (default: 60)
     /// Increase this value for large files or slow storage
     pub timeout_seconds: Option<u64>,
+    /// Search subfolders recursively (default: false)
+    pub recursive: Option<bool>,
 }
 
 /// Tool: List files ready for import
@@ -171,6 +173,8 @@ pub struct IngestFilesInput {
 pub struct ListImportableInput {
     pub folder: Option<String>,
     pub limit: Option<usize>,
+    /// Search subfolders recursively (default: false)
+    pub recursive: Option<bool>,
 }
 
 /// Tool: Transcribe an audio file
@@ -230,9 +234,10 @@ pub async fn ingest_file(
     let chunk_size = input.chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
     let memory_type = parse_memory_type(input.memory_type.as_deref().unwrap_or("file"));
     let timeout_secs = input.timeout_seconds.unwrap_or(DEFAULT_INGEST_TIMEOUT_SECS);
+    let recursive = input.recursive.unwrap_or(false);
 
-    tracing::info!("Starting file ingestion: limit={}, chunk_size={}, timeout={}s", 
-                   limit, chunk_size, timeout_secs);
+    tracing::info!("Starting file ingestion: limit={}, chunk_size={}, timeout={}s, recursive={}", 
+                   limit, chunk_size, timeout_secs, recursive);
 
     // Check if ingesting a specific file or from folder
     if let Some(file_path) = file_path {
@@ -335,9 +340,32 @@ pub async fn ingest_file(
             };
         }
 
-        // Collect files from folder
-        let files = collect_importable_files(&folder)?;
-        let files_to_process: Vec<_> = files.into_iter().take(limit).collect();
+        // Collect files from folder (with optional recursive search)
+        let all_files = if recursive {
+            collect_importable_files_with_recursive(&folder, true)?
+        } else {
+            collect_importable_files(&folder)?
+        };
+        
+        // Filter out files with skip reasons and already ingested files
+        let ingest_tracker = get_ingest_tracker().try_lock();
+        let files_to_process: Vec<_> = all_files
+            .into_iter()
+            .filter(|f| {
+                // Skip files with skip reasons (size limits, embedding patterns, etc.)
+                if f.skip_reason.is_some() {
+                    return false;
+                }
+                // Skip already ingested files
+                if let Some(ref tracker) = ingest_tracker {
+                    if tracker.was_recently_ingested(&f.path) {
+                        return false;
+                    }
+                }
+                true
+            })
+            .take(limit)
+            .collect();
 
         let mut results = Vec::new();
         let mut successful = 0;
@@ -485,13 +513,30 @@ pub async fn ingest_file(
             "files_ready_for_deletion": successfully_ingested.clone(),
             "note": if remaining_count > 0 {
                 format!("{} file(s) remaining in temp folder. Call ingest again with temp_folder path.", remaining_count)
+            } else if successfully_ingested.is_empty() {
+                "No files were ingested. Files may have been skipped (size limits, embedding patterns) or already processed.".to_string()
             } else {
                 "All files ingested.".to_string()
             },
+            "NEXT_ACTION": if successfully_ingested.is_empty() {
+                "No action needed - no files were successfully ingested."
+            } else {
+                "ASK USER: 'I successfully ingested the file(s). Can I delete the original file(s) to save space?'"
+            },
             "deletion_workflow": {
-                "step_1": "ASK USER: 'Can I delete the original file(s)?'",
-                "step_2": "Only after user says YES, call delete_ingested_files",
-                "step_3": "Must provide confirmation='yes'",
+                "if_user_says_yes": {
+                    "step_1": "Call delete_ingested_files",
+                    "step_2": "Use files from 'files_ready_for_deletion' list",
+                    "step_3": "Set confirmation='yes'",
+                    "example": {
+                        "files": successfully_ingested,
+                        "confirmation": "yes"
+                    }
+                },
+                "if_user_says_no": {
+                    "action": "Keep files - no deletion needed",
+                    "note": "Files will NOT be offered again on next ingest_files call"
+                },
                 "files_pending_deletion": successfully_ingested.len()
             },
             "timeout_occurred": timeout_occurred,
@@ -500,6 +545,7 @@ pub async fn ingest_file(
             } else {
                 serde_json::Value::Null
             },
+            "recursive_used": recursive,
             "warning": "You MUST ask the user before calling delete_ingested_files. Do NOT delete without asking."
         })))
     }

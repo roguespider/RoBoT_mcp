@@ -9,6 +9,12 @@ use anyhow::Result;
 /// Default folder name for files to import
 pub const DEFAULT_IMPORT_FOLDER: &str = "files_to_import";
 
+/// Maximum file size for text files (50MB) - larger files may cause timeouts
+pub const MAX_TEXT_FILE_SIZE: u64 = 50 * 1024 * 1024;
+
+/// Maximum file size for JSON files (10MB) - JSON with embeddings don't chunk well
+pub const MAX_JSON_FILE_SIZE: u64 = 10 * 1024 * 1024;
+
 /// Supported file extensions
 pub const TEXT_EXTENSIONS: &[&str] = &[
     "txt", "md", "rst", "csv", "log", "xml", "html", "htm",  // Standard text
@@ -18,6 +24,25 @@ pub const TEXT_EXTENSIONS: &[&str] = &[
     "css", "scss", "sass", "less", "json", "jsonl",  // Web & data
     "properties", "conf", "cfg", "ini", "lock",  // Config
     "srt", "vtt", "ass",  // Subtitles
+];
+
+/// JSON file extensions - these have special size limits due to embedding/metadata files
+pub const JSON_EXTENSIONS: &[&str] = &["json", "jsonl"];
+
+/// Files that should be skipped (typically embedding/metadata dumps)
+pub const SKIP_PATTERNS: &[&str] = &[
+    "embeddings",
+    "embedding",
+    "vector",
+    "vectors",
+    "chroma",
+    "pinecone",
+    "qdrant",
+    "metadata",
+    "index.json",
+    "faiss",
+    "ann",
+    "hnsw",
 ];
 
 pub const ARCHIVE_EXTENSIONS: &[&str] = &["zip", "tar", "gz", "tgz", "tar.gz", "bz2", "xz", "7z", "rar"];
@@ -33,6 +58,7 @@ pub struct ImportableFile {
     pub filename: String,
     pub size: u64,
     pub file_type: String,
+    pub skip_reason: Option<String>,
 }
 
 /// Get the import folder path
@@ -69,6 +95,17 @@ fn is_supported_extension(path: &Path, extensions: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+/// Check if filename matches skip patterns (embedding/metadata files)
+fn matches_skip_pattern(filename: &str) -> Option<String> {
+    let filename_lower = filename.to_lowercase();
+    for pattern in SKIP_PATTERNS {
+        if filename_lower.contains(&pattern.to_lowercase()) {
+            return Some(format!("matches skip pattern '{}'", pattern));
+        }
+    }
+    None
+}
+
 /// Detect file type based on extension
 fn detect_file_type(path: &Path) -> String {
     let ext = path
@@ -94,8 +131,50 @@ fn detect_file_type(path: &Path) -> String {
     }
 }
 
-/// Collect all importable files from a folder
+/// Check if file should be skipped due to size limits
+fn check_file_size_limits(path: &Path, file_type: &str, size: u64) -> Option<String> {
+    // Check skip patterns first
+    if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+        if let Some(reason) = matches_skip_pattern(filename) {
+            return Some(reason);
+        }
+    }
+    
+    // Check JSON-specific size limits
+    if is_supported_extension(path, JSON_EXTENSIONS) {
+        if size > MAX_JSON_FILE_SIZE {
+            return Some(format!(
+                "JSON file exceeds {}MB limit (found {}MB). JSON files with embeddings/metadata don't chunk well.",
+                MAX_JSON_FILE_SIZE / (1024 * 1024),
+                size / (1024 * 1024)
+            ));
+        }
+        return None;
+    }
+    
+    // Check general text file size limits
+    if file_type == "text" && size > MAX_TEXT_FILE_SIZE {
+        return Some(format!(
+            "File exceeds {}MB limit (found {}MB). Try splitting the file.",
+            MAX_TEXT_FILE_SIZE / (1024 * 1024),
+            size / (1024 * 1024)
+        ));
+    }
+    
+    None
+}
+
+/// Collect all importable files from a folder (non-recursive)
 pub fn collect_importable_files(folder: &Path) -> Result<Vec<ImportableFile>> {
+    collect_importable_files_internal(folder, false)
+}
+
+/// Collect all importable files from a folder with recursive option
+pub fn collect_importable_files_with_recursive(folder: &Path, recursive: bool) -> Result<Vec<ImportableFile>> {
+    collect_importable_files_internal(folder, recursive)
+}
+
+fn collect_importable_files_internal(folder: &Path, recursive: bool) -> Result<Vec<ImportableFile>> {
     let mut files = Vec::new();
     
     if !folder.exists() {
@@ -110,21 +189,37 @@ pub fn collect_importable_files(folder: &Path) -> Result<Vec<ImportableFile>> {
             .unwrap_or("unknown")
             .to_string();
         
+        let file_type = detect_file_type(folder);
+        let size = fs::metadata(folder)?.len();
+        let skip_reason = check_file_size_limits(folder, &file_type, size);
+        
         return Ok(vec![ImportableFile {
             path: folder.to_string_lossy().to_string(),
             filename: file_name,
-            size: fs::metadata(folder)?.len(),
-            file_type: detect_file_type(folder),
+            size,
+            file_type,
+            skip_reason,
         }]);
     }
     
     // Collect files from folder
-    for entry in fs::read_dir(folder)? {
+    collect_files_recursive(folder, recursive, &mut files)?;
+    
+    // Sort by filename
+    files.sort_by(|a, b| a.filename.cmp(&b.filename));
+    
+    Ok(files)
+}
+
+fn collect_files_recursive(dir: &Path, recursive: bool, files: &mut Vec<ImportableFile>) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         
-        // Skip directories
         if path.is_dir() {
+            if recursive {
+                collect_files_recursive(&path, recursive, files)?;
+            }
             continue;
         }
         
@@ -141,20 +236,22 @@ pub fn collect_importable_files(folder: &Path) -> Result<Vec<ImportableFile>> {
             continue;
         }
         
-        let size = fs::metadata(&path)?.len();
+        let size = match fs::metadata(&path) {
+            Ok(m) => m.len(),
+            Err(_) => continue,
+        };
+        
+        let skip_reason = check_file_size_limits(&path, &file_type, size);
         
         files.push(ImportableFile {
             path: path.to_string_lossy().to_string(),
             filename: file_name,
             size,
             file_type,
+            skip_reason,
         });
     }
-    
-    // Sort by filename
-    files.sort_by(|a, b| a.filename.cmp(&b.filename));
-    
-    Ok(files)
+    Ok(())
 }
 
 /// Collect all files recursively from a directory
