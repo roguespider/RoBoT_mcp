@@ -193,8 +193,11 @@ fn collect_importable_files_internal(folder: &Path, recursive: bool) -> Result<V
         let size = fs::metadata(folder)?.len();
         let skip_reason = check_file_size_limits(folder, &file_type, size);
         
+        // Always use canonical/absolute path
+        let absolute_path = folder.canonicalize().unwrap_or_else(|_| folder.to_path_buf());
+        
         return Ok(vec![ImportableFile {
-            path: folder.to_string_lossy().to_string(),
+            path: absolute_path.to_string_lossy().to_string(),
             filename: file_name,
             size,
             file_type,
@@ -243,8 +246,12 @@ fn collect_files_recursive(dir: &Path, recursive: bool, files: &mut Vec<Importab
         
         let skip_reason = check_file_size_limits(&path, &file_type, size);
         
+        // Always use canonical/absolute path to avoid confusion
+        let absolute_path = path.canonicalize()
+            .unwrap_or_else(|_| path.clone());
+        
         files.push(ImportableFile {
-            path: path.to_string_lossy().to_string(),
+            path: absolute_path.to_string_lossy().to_string(),
             filename: file_name,
             size,
             file_type,

@@ -86,11 +86,15 @@ pub async fn execute_list_importable(
     let limit = input.limit.unwrap_or(5);
     let recursive = input.recursive.unwrap_or(false);
     
-    // Get exe directory for reference
+    // Get exe directory for reference (canonicalize for absolute path)
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .map(|p| p.canonicalize().unwrap_or(p))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
+    
+    // Canonicalize the import folder to absolute path
+    let folder = folder.canonicalize().unwrap_or(folder);
     
     let folder_display = folder.to_string_lossy().to_string();
     let exe_dir_display = exe_dir.to_string_lossy().to_string();
@@ -134,6 +138,12 @@ pub async fn execute_list_importable(
         "total": total,
         "recursive": recursive,
         "instruction": "Use ingest_files with folder='files_to_import' (or omit folder parameter) and limit=1 to ingest one file at a time",
+        "IMPORTANT_SCOPING": {
+            "scope": "ONLY look in import_folder for files",
+            "do_not_look": ["current project folder", "source code directories", "anywhere outside import_folder"],
+            "this_folder": folder_display,
+            "reason": "robot_brain.exe, robot_brain.db, and files_to_import are all in the robot_brain directory"
+        },
         "message": if files.is_empty() && skipped.is_empty() {
             format!("No importable files found in {}. Add files to this folder to ingest them.", folder_display)
         } else if files.is_empty() {

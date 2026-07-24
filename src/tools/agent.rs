@@ -159,6 +159,13 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
     let workflow = match purpose.to_lowercase().as_str() {
         "file_ingestion" | "ingest" | "import" => serde_json::json!({
             "workflow_name": "File Ingestion Workflow",
+            "SCOPING_RULES": {
+                "IMPORTANT": "ALWAYS look in the robot_brain directory, NOT the current project folder",
+                "where_to_look": "Use import_folder path from list_importable response - this is the files_to_import location",
+                "do_NOT_look_here": ["current project folder", "source code directories like src/", "anywhere except import_folder"],
+                "reason": "robot_brain.exe, robot_brain.db, and files_to_import are ALL in the robot_brain directory",
+                "look_at": "Check response.IMPORTANT_SCOPING.this_folder for the exact path to use"
+            },
             "mandatory_steps": [
                 {
                     "step": 1,
@@ -171,7 +178,7 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                     "tool": "list_importable",
                     "action": "Check available files in files_to_import folder",
                     "parameters": {"recursive": true},
-                    "description": "Lists files ready for ingestion. Use recursive=true to include subfolders. Files with skip_reason are NOT ingestible (size limits, embedding patterns)."
+                    "description": "Lists files ready for ingestion. Use recursive=true to include subfolders. Look at IMPORTANT_SCOPING.this_folder for the exact path."
                 },
                 {
                     "step": 3,
@@ -226,13 +233,13 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
             "critical_rules": [
                 "ALWAYS use limit=1 for single file ingestion",
                 "NEVER batch ingest without explicit user instruction",
+                "ALWAYS look in import_folder path, NEVER in current project",
                 "ALWAYS follow the NEXT_ACTION in ingest response",
                 "ALWAYS ask user before calling delete_ingested_files",
                 "ALWAYS ask user if files have already been ingested (use force=true if they confirm)",
                 "ALWAYS check for empty_folders after file deletion - ASK USER about folder cleanup",
                 "confirmation parameter MUST be exactly 'yes'",
-                "NEVER delete the files_to_import folder itself, only subfolders inside it",
-                "files_to_import is relative to executable location"
+                "NEVER delete the files_to_import folder itself, only subfolders inside it"
             ],
             "files_that_are_skipped": [
                 "JSON files >10MB (embedding/metadata files don't chunk well)",
@@ -245,6 +252,7 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                 "JSON files: 16384 characters per chunk (better for structured data)"
             ],
             "common_mistakes_to_avoid": [
+                "Looking for files_to_import in current project folder instead of robot_brain directory",
                 "Calling ingest_files without limit=1 (causes batch ingest)",
                 "Calling delete_ingested_files without asking user first",
                 "Using confirmation values other than 'yes'",

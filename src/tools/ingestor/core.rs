@@ -526,6 +526,12 @@ pub async fn ingest_file(
             "already_ingested": already_ingested_filenames,
             "already_ingested_count": already_ingested.len(),
             "skipped_count": skipped_files.len(),
+            "IMPORTANT_SCOPING": {
+                "scope": "ONLY look in import_folder for files",
+                "do_not_look": ["current project folder", "source code directories", "anywhere outside import_folder"],
+                "this_folder": folder_display,
+                "reason": "robot_brain.exe, robot_brain.db, and files_to_import are all in the robot_brain directory"
+            },
             "note": if remaining_count > 0 {
                 format!("{} file(s) remaining in temp folder. Call ingest again with temp_folder path.", remaining_count)
             } else if successfully_ingested.is_empty() && already_ingested.is_empty() {
