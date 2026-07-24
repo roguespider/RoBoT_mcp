@@ -31,7 +31,7 @@ pub fn all() -> Vec<McpTool> {
                     },
                     "chunk_size": {
                         "type": "integer",
-                        "description": "Chunk size for splitting text (default: 1000)"
+                        "description": "Chunk size for splitting text (default: 1000, JSON: 16384)"
                     },
                     "memory_type": {
                         "type": "string",
@@ -40,6 +40,10 @@ pub fn all() -> Vec<McpTool> {
                     "recursive": {
                         "type": "boolean",
                         "description": "Search subfolders recursively (default: false). Set to true to include files in subdirectories."
+                    },
+                    "force": {
+                        "type": "boolean",
+                        "description": "Force re-ingestion of already-ingested files (default: false). Use when user confirms they want to add a file again."
                     }
                 }
             }),

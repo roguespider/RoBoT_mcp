@@ -19,7 +19,7 @@ use crate::tools::ingestor::archive_handler::{
     create_archive_temp_dir, delete_empty_folders,
     get_recent_archive_temp_folder, process_archive,
 };
-use crate::tools::ingestor::file_collector::{collect_all_files_recursive, collect_importable_files, collect_importable_files_with_recursive, get_import_folder};
+use crate::tools::ingestor::file_collector::{collect_all_files_recursive, collect_importable_files, collect_importable_files_with_recursive, get_import_folder, is_supported_extension, JSON_EXTENSIONS};
 use crate::tools::ingestor::text_extractor::{chunk_text, extract_text};
 
 // Re-export for convenience (via parent module)
@@ -33,6 +33,9 @@ pub const DEFAULT_CHUNK_SIZE: usize = 1000;
 
 /// Default overlap between chunks
 pub const DEFAULT_CHUNK_OVERLAP: usize = 100;
+
+/// Larger chunk size for JSON files (better for structured data)
+pub const JSON_CHUNK_SIZE: usize = 16384;
 
 /// Tracks recently ingested files for deletion verification
 /// This prevents agents from deleting files without proper ingestion
@@ -166,6 +169,9 @@ pub struct IngestFilesInput {
     pub timeout_seconds: Option<u64>,
     /// Search subfolders recursively (default: false)
     pub recursive: Option<bool>,
+    /// Force re-ingestion of already-ingested files (default: false)
+    /// Use this when user confirms they want to add a file again
+    pub force: Option<bool>,
 }
 
 /// Tool: List files ready for import
@@ -205,6 +211,7 @@ pub struct IngestResult {
     pub file_path: String,
     pub success: bool,
     pub chunks_created: usize,
+    pub chunk_size_used: usize,
     pub memory_ids: Vec<String>,
     pub error: Option<String>,
     pub remaining_count: usize,
@@ -235,9 +242,10 @@ pub async fn ingest_file(
     let memory_type = parse_memory_type(input.memory_type.as_deref().unwrap_or("file"));
     let timeout_secs = input.timeout_seconds.unwrap_or(DEFAULT_INGEST_TIMEOUT_SECS);
     let recursive = input.recursive.unwrap_or(false);
+    let force = input.force.unwrap_or(false);
 
-    tracing::info!("Starting file ingestion: limit={}, chunk_size={}, timeout={}s, recursive={}", 
-                   limit, chunk_size, timeout_secs, recursive);
+    tracing::info!("Starting file ingestion: limit={}, chunk_size={}, timeout={}s, recursive={}, force={}", 
+                   limit, chunk_size, timeout_secs, recursive, force);
 
     // Check if ingesting a specific file or from folder
     if let Some(file_path) = file_path {
@@ -347,25 +355,26 @@ pub async fn ingest_file(
             collect_importable_files(&folder)?
         };
         
-        // Filter out files with skip reasons and already ingested files
-        let ingest_tracker = get_ingest_tracker().try_lock();
-        let files_to_process: Vec<_> = all_files
+        // Filter out files with skip reasons
+        let (skipped_files, files_to_check): (Vec<_>, Vec<_>) = all_files
             .into_iter()
-            .filter(|f| {
-                // Skip files with skip reasons (size limits, embedding patterns, etc.)
-                if f.skip_reason.is_some() {
-                    return false;
-                }
-                // Skip already ingested files
-                if let Some(ref tracker) = ingest_tracker {
-                    if tracker.was_recently_ingested(&f.path) {
-                        return false;
+            .partition(|f| f.skip_reason.is_some());
+        
+        // Check for already-ingested files and separate them
+        let ingest_tracker = get_ingest_tracker().try_lock();
+        let (already_ingested, files_to_process): (Vec<_>, Vec<_>) = files_to_check
+            .into_iter()
+            .partition(|f| {
+                if !force {
+                    // Only check tracker if not forcing
+                    if let Some(ref tracker) = ingest_tracker {
+                        return tracker.was_recently_ingested(&f.path);
                     }
                 }
-                true
-            })
-            .take(limit)
-            .collect();
+                false
+            });
+        
+        let files_to_process: Vec<_> = files_to_process.into_iter().take(limit).collect();
 
         let mut results = Vec::new();
         let mut successful = 0;
@@ -502,6 +511,9 @@ pub async fn ingest_file(
             results,
         };
 
+        // Format already ingested files for display
+        let already_ingested_filenames: Vec<String> = already_ingested.iter().map(|f| f.filename.clone()).collect();
+        
         Ok(ToolOutput::success(serde_json::json!({
             "summary": summary,
             "successfully_ingested": successfully_ingested,
@@ -511,14 +523,22 @@ pub async fn ingest_file(
             "remaining_in_temp": remaining_count,
             "files_stored_in": format!("robot_brain.db in {}", exe_dir),
             "files_ready_for_deletion": successfully_ingested.clone(),
+            "already_ingested": already_ingested_filenames,
+            "already_ingested_count": already_ingested.len(),
+            "skipped_count": skipped_files.len(),
             "note": if remaining_count > 0 {
                 format!("{} file(s) remaining in temp folder. Call ingest again with temp_folder path.", remaining_count)
+            } else if successfully_ingested.is_empty() && already_ingested.is_empty() {
+                "No files were ingested. Files may have been skipped (size limits, embedding patterns).".to_string()
             } else if successfully_ingested.is_empty() {
-                "No files were ingested. Files may have been skipped (size limits, embedding patterns) or already processed.".to_string()
+                "No new files were ingested.".to_string()
             } else {
                 "All files ingested.".to_string()
             },
-            "NEXT_ACTION": if successfully_ingested.is_empty() {
+            "NEXT_ACTION": if !already_ingested.is_empty() && successfully_ingested.is_empty() {
+                // All files were already ingested - ask user if they want to re-ingest
+                serde_json::json!("ASK USER: 'The following files have already been added to memory: {:?}. Do you want to add them again?'. If YES, use force=true parameter.".replace("{:?}", &format!("{:?}", already_ingested_filenames)))
+            } else if successfully_ingested.is_empty() {
                 "No action needed - no files were successfully ingested."
             } else {
                 "ASK USER: 'I successfully ingested the file(s). Can I delete the original file(s) to save space?'"
@@ -628,14 +648,22 @@ async fn ingest_single_file(
             file_path: path.to_string_lossy().to_string(),
             success: false,
             chunks_created: 0,
+            chunk_size_used: chunk_size,
             memory_ids: vec![],
             error: Some("File contains no text".to_string()),
             remaining_count: 0,
         });
     }
 
+    // Use larger chunk size for JSON files (better for structured data)
+    let actual_chunk_size = if is_supported_extension(path, JSON_EXTENSIONS) {
+        JSON_CHUNK_SIZE
+    } else {
+        chunk_size
+    };
+
     // Chunk the text
-    let chunks = chunk_text(&text, chunk_size, DEFAULT_CHUNK_OVERLAP);
+    let chunks = chunk_text(&text, actual_chunk_size, DEFAULT_CHUNK_OVERLAP);
 
     // Store each chunk as a memory card using batch inserts for performance
     let mut memory_ids = Vec::new();
@@ -661,6 +689,7 @@ async fn ingest_single_file(
         file_path: path.to_string_lossy().to_string(),
         success: true,
         chunks_created: chunks.len(),
+        chunk_size_used: actual_chunk_size,
         memory_ids,
         error: None,
         remaining_count: 0,

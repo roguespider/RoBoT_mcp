@@ -88,7 +88,7 @@ pub fn get_import_folder(folder: Option<&str>) -> PathBuf {
 }
 
 /// Check if a file extension matches any of the supported extensions
-fn is_supported_extension(path: &Path, extensions: &[&str]) -> bool {
+pub fn is_supported_extension(path: &Path, extensions: &[&str]) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .map(|e| extensions.contains(&e.to_lowercase().as_str()))

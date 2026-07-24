@@ -184,7 +184,7 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                     "step": 4,
                     "tool": "check response.NEXT_ACTION",
                     "action": "Follow the NEXT_ACTION in the response",
-                    "description": "The ingest response includes a 'NEXT_ACTION' field telling you what to do next."
+                    "description": "The ingest response includes a 'NEXT_ACTION' field telling you what to do next. If already_ingested_count > 0, ASK USER if they want to re-ingest."
                 },
                 {
                     "step": 5,
@@ -206,11 +206,23 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                     "description": "Use files from 'files_ready_for_deletion' in the ingest response. confirmation MUST be 'yes' (exactly)."
                 }
             ],
+            "re_ingestion_workflow": {
+                "scenario": "When ingest_files returns already_ingested files",
+                "step_1": "Check response.already_ingested_count > 0",
+                "step_2": "Response will contain NEXT_ACTION: ASK USER about re-ingestion",
+                "step_3": "If user says YES: Call ingest_files with force=true",
+                "step_4": "If user says NO: Do not re-ingest, proceed to next file",
+                "example": {
+                    "user_says_yes": {"force": true, "limit": 1},
+                    "user_says_no": {"note": "Skip re-ingestion, file stays in memory"}
+                }
+            },
             "critical_rules": [
                 "ALWAYS use limit=1 for single file ingestion",
                 "NEVER batch ingest without explicit user instruction",
                 "ALWAYS follow the NEXT_ACTION in ingest response",
                 "ALWAYS ask user before calling delete_ingested_files",
+                "ALWAYS ask user if files have already been ingested (use force=true if they confirm)",
                 "confirmation parameter MUST be exactly 'yes'",
                 "Folders are NOT deleted - only files",
                 "files_to_import is relative to executable location"
@@ -219,14 +231,19 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                 "JSON files >10MB (embedding/metadata files don't chunk well)",
                 "Text files >50MB (size limit to prevent timeouts)",
                 "Files matching patterns: embeddings, vectors, chroma, pinecone, faiss, metadata, etc.",
-                "Files already ingested (tracked in memory, not offered again)"
+                "Files already ingested (tracked in memory, shown with already_ingested_count)"
+            ],
+            "chunk_sizes": [
+                "Default: 1000 characters per chunk",
+                "JSON files: 16384 characters per chunk (better for structured data)"
             ],
             "common_mistakes_to_avoid": [
                 "Calling ingest_files without limit=1 (causes batch ingest)",
                 "Calling delete_ingested_files without asking user first",
                 "Using confirmation values other than 'yes'",
                 "Trying to delete folders instead of files",
-                "Forgetting to verify ingestion with search_memory"
+                "Forgetting to verify ingestion with search_memory",
+                "Forgetting to ask about re-ingestion when already_ingested_count > 0"
             ]
         }),
         
