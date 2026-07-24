@@ -1,5 +1,6 @@
 // src/bridge/mcp.rs
 // MCP (Model Context Protocol) core types and traits
+#![allow(dead_code)]
 
 use std::sync::Arc;
 
@@ -13,6 +14,7 @@ use crate::experience::evolution::EvolutionEngine;
 use crate::experience::metrics::MetricsCollector;
 use crate::experience::reflection::ReflectionEngine;
 use crate::experience::scheduler::Scheduler;
+use crate::workflows::engine::WorkflowEngine;
 
 /// MCP protocol version
 pub const MCP_VERSION: &str = "2024-11-05";
@@ -141,13 +143,13 @@ pub struct McpServerInfo {
 pub trait McpHandler: Send + Sync {
     /// Handle an MCP request
     fn handle_request(&self, request: McpRequest) -> Result<McpResponse>;
-    
+
     /// Handle an MCP notification
     fn handle_notification(&self, notification: McpNotification) -> Result<()>;
-    
+
     /// Get server capabilities
     fn get_capabilities(&self) -> McpCapabilities;
-    
+
     /// Get server info
     fn get_server_info(&self) -> McpServerInfo;
 }
@@ -156,55 +158,58 @@ pub trait McpHandler: Send + Sync {
 pub struct McpContext {
     /// Database layer
     pub database: Arc<SqliteDatabase>,
-    
+
     /// Event bus
     #[allow(dead_code)]
     pub bus: Arc<ExperienceBus>,
-    
+
     /// Experience coordinator (used by experience tools)
     pub coordinator: Arc<ExperienceCoordinator>,
-    
+
     /// Reflection engine (used by reflection tools)
     pub reflection: Arc<ReflectionEngine>,
-    
+
     /// Evolution engine
     #[allow(dead_code)]
     pub evolution: Arc<EvolutionEngine>,
-    
+
     /// Background scheduler
     #[allow(dead_code)]
     pub scheduler: Arc<Scheduler>,
-    
+
     /// Metrics collector
     #[allow(dead_code)]
     pub metrics: Arc<MetricsCollector>,
-    
+
     /// Knowledge system - manages validated knowledge (used by knowledge tools)
     pub knowledge: Arc<crate::knowledge::KnowledgeStore>,
-    
+
     /// Planner - task decomposition and execution (used by planner tools)
     pub planner: Arc<crate::planner::Planner>,
-    
+
     /// Policy engine - decision-making rules
     #[allow(dead_code)]
     pub policy: Arc<crate::planner::PolicyEngine>,
-    
+
     /// Working memory - short-term memory layer
     #[allow(dead_code)]
     pub working_memory: Arc<crate::memory::WorkingMemory>,
-    
-    /// Permanent memory - long-term memory layer  
+
+    /// Permanent memory - long-term memory layer
     #[allow(dead_code)]
     pub permanent_memory: Arc<crate::memory::PermanentMemory>,
-    
+
     /// Memory retrieval - unified retrieval across layers
     #[allow(dead_code)]
     pub memory_retrieval: Arc<crate::memory::MemoryRetrieval>,
-    
+
+    /// Workflow engine - structured workflow execution
+    pub workflow_engine: Arc<WorkflowEngine>,
+
     /// Server info
     #[allow(dead_code)]
     pub server_info: McpServerInfo,
-    
+
     /// Server capabilities
     #[allow(dead_code)]
     pub capabilities: McpCapabilities,
@@ -226,6 +231,7 @@ impl McpContext {
         working_memory: Arc<crate::memory::WorkingMemory>,
         permanent_memory: Arc<crate::memory::PermanentMemory>,
         memory_retrieval: Arc<crate::memory::MemoryRetrieval>,
+        workflow_engine: Arc<WorkflowEngine>,
     ) -> Self {
         Self {
             database,
@@ -241,6 +247,7 @@ impl McpContext {
             working_memory,
             permanent_memory,
             memory_retrieval,
+            workflow_engine,
             server_info: McpServerInfo {
                 name: env!("CARGO_PKG_NAME").to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
@@ -263,12 +270,12 @@ impl McpContext {
 // ============================================================================
 
 use rmcp::{
-    ClientHandler,
     model::{CallToolRequestParams, ClientInfo, Tool},
     service::{RoleClient, RunningService},
+    ClientHandler,
 };
-use tokio::sync::RwLock;
 use tokio::process::Command;
+use tokio::sync::RwLock;
 
 /// A connected MCP server
 struct ConnectedServer {
@@ -312,14 +319,19 @@ impl McpClient {
     /// Connect to an MCP server via child process transport
     pub async fn connect(&self, name: &str, command: &str, args: &[&str]) -> Result<()> {
         use rmcp::transport::child_process::TokioChildProcess;
-        
-        tracing::info!("Connecting to MCP server '{}': {} {:?}", name, command, args);
+
+        tracing::info!(
+            "Connecting to MCP server '{}': {} {:?}",
+            name,
+            command,
+            args
+        );
 
         // Create child process transport
         let mut cmd = Command::new(command);
         cmd.args(args);
         let transport = TokioChildProcess::new(cmd)?;
-        
+
         // Create client handler
         let client = SimpleClientHandler {
             info: ClientInfo::default(),
@@ -327,10 +339,10 @@ impl McpClient {
 
         // Start the client and get the running service
         let running = rmcp::serve_client(client, transport).await?;
-        
+
         // Get the peer to list tools
         let peer = running.peer().clone();
-        
+
         // List tools from the server
         let tools = match peer.list_all_tools().await {
             Ok(tools) => {
@@ -353,8 +365,12 @@ impl McpClient {
         };
 
         self.servers.write().await.push(server);
-        
-        tracing::info!("MCP client connected to '{}' with {} tools", name, tools_count);
+
+        tracing::info!(
+            "MCP client connected to '{}' with {} tools",
+            name,
+            tools_count
+        );
         Ok(())
     }
 
@@ -389,21 +405,27 @@ impl McpClient {
         let server_name;
         {
             let servers = self.servers.read().await;
-            let found = servers.iter().find(|s| s.tools.iter().any(|t| t.name == tool_name));
+            let found = servers
+                .iter()
+                .find(|s| s.tools.iter().any(|t| t.name == tool_name));
             match found {
                 Some(s) => server_name = s.name.clone(),
-                None => return Err(ToolError {
-                    message: format!("Tool '{}' not found on any connected server", tool_name),
-                    server: "unknown".to_string(),
-                    tool: tool_name.to_string(),
-                }),
+                None => {
+                    return Err(ToolError {
+                        message: format!("Tool '{}' not found on any connected server", tool_name),
+                        server: "unknown".to_string(),
+                        tool: tool_name.to_string(),
+                    })
+                }
             }
         }
 
         // Get a reference to the running service (server_name already found above)
         let peer = {
             let servers = self.servers.read().await;
-            let server = servers.iter().find(|s| s.name == server_name)
+            let server = servers
+                .iter()
+                .find(|s| s.name == server_name)
                 .expect("Server should exist - name was validated above");
             server.running.peer().clone()
         };

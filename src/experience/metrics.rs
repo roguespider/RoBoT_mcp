@@ -1,5 +1,6 @@
 // /src/experience/metrics.rs
 // Metrics collection for performance and learning tracking
+#![allow(dead_code)]
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -12,13 +13,13 @@ use tokio::sync::RwLock;
 pub struct MetricPoint {
     /// Metric name
     pub name: String,
-    
+
     /// Metric value
     pub value: f64,
-    
+
     /// Timestamp
     pub timestamp: DateTime<Utc>,
-    
+
     /// Optional labels/tags
     pub labels: HashMap<String, String>,
 }
@@ -39,10 +40,10 @@ pub struct AggregatedMetric {
 pub struct MetricsCollector {
     /// In-memory storage for current metrics
     metrics: Arc<RwLock<HashMap<String, Vec<MetricPoint>>>>,
-    
+
     /// Counters for discrete events
     counters: Arc<RwLock<HashMap<String, u64>>>,
-    
+
     /// Gauges for current values
     gauges: Arc<RwLock<HashMap<String, f64>>>,
 }
@@ -141,13 +142,15 @@ impl MetricsCollector {
         let count = points.len() as u64;
         let sum: f64 = points.iter().map(|p| p.value).sum();
         let min = points.iter().map(|p| p.value).fold(f64::INFINITY, f64::min);
-        let max = points.iter().map(|p| p.value).fold(f64::NEG_INFINITY, f64::max);
+        let max = points
+            .iter()
+            .map(|p| p.value)
+            .fold(f64::NEG_INFINITY, f64::max);
         let avg = sum / count as f64;
 
         let std_dev = if count > 1 {
-            let variance: f64 = points.iter()
-                .map(|p| (p.value - avg).powi(2))
-                .sum::<f64>() / (count - 1) as f64;
+            let variance: f64 =
+                points.iter().map(|p| (p.value - avg).powi(2)).sum::<f64>() / (count - 1) as f64;
             Some(variance.sqrt())
         } else {
             None
@@ -180,7 +183,7 @@ impl MetricsCollector {
     pub async fn clear_old(&self, hours: i64) {
         let cutoff = Utc::now() - chrono::Duration::hours(hours);
         let mut metrics = self.metrics.write().await;
-        
+
         for points in metrics.values_mut() {
             points.retain(|p| p.timestamp > cutoff);
         }
@@ -196,24 +199,27 @@ impl MetricsCollector {
     pub async fn summary(&self) -> MetricsSummary {
         let counters = self.get_all_counters().await;
         let gauges = self.get_all_gauges().await;
-        
+
         let mut metric_summaries = HashMap::new();
         let metrics = self.metrics.read().await;
-        
+
         for (name, points) in &*metrics {
             if !points.is_empty() {
                 let values: Vec<f64> = points.iter().map(|p| p.value).collect();
                 let sum: f64 = values.iter().sum();
                 let count = values.len() as u64;
-                metric_summaries.insert(name.clone(), AggregatedMetric {
-                    name: name.clone(),
-                    count,
-                    sum,
-                    min: values.iter().copied().fold(f64::INFINITY, f64::min),
-                    max: values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
-                    avg: sum / count as f64,
-                    std_dev: None,
-                });
+                metric_summaries.insert(
+                    name.clone(),
+                    AggregatedMetric {
+                        name: name.clone(),
+                        count,
+                        sum,
+                        min: values.iter().copied().fold(f64::INFINITY, f64::min),
+                        max: values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+                        avg: sum / count as f64,
+                        std_dev: None,
+                    },
+                );
             }
         }
 
@@ -245,35 +251,35 @@ pub mod metric_names {
     pub const EXPERIENCES_RECORDED: &str = "experiences.recorded";
     pub const EXPERIENCES_SUCCESS: &str = "experiences.success";
     pub const EXPERIENCES_FAILURE: &str = "experiences.failure";
-    
+
     // Reflection metrics
     pub const REFLECTIONS_CREATED: &str = "reflections.created";
     pub const REFLECTIONS_VALIDATED: &str = "reflections.validated";
     pub const PATTERNS_DETECTED: &str = "patterns.detected";
-    
+
     // Hypothesis metrics
     pub const HYPOTHESES_GENERATED: &str = "hypotheses.generated";
     pub const HYPOTHESES_CONFIRMED: &str = "hypotheses.confirmed";
     pub const HYPOTHESES_REJECTED: &str = "hypotheses.rejected";
-    
+
     // Exploration metrics
     pub const EXPLORATIONS_STARTED: &str = "explorations.started";
     pub const EXPLORATIONS_COMPLETED: &str = "explorations.completed";
     pub const FINDINGS_DISCOVERED: &str = "explorations.findings";
-    
+
     // Evolution metrics
     pub const BEHAVIORS_CREATED: &str = "behaviors.created";
     pub const BEHAVIORS_ACTIVATED: &str = "behaviors.activated";
     pub const BEHAVIORS_DEPRECATED: &str = "behaviors.deprecated";
-    
+
     // Reputation metrics
     pub const REPUTATION_UPDATES: &str = "reputation.updates";
-    
+
     // Performance metrics
     pub const PROCESSING_TIME_MS: &str = "processing.time_ms";
     pub const DATABASE_OPERATIONS: &str = "database.operations";
     pub const DATABASE_LATENCY_MS: &str = "database.latency_ms";
-    
+
     // Learning metrics
     pub const INSIGHTS_GENERATED: &str = "insights.generated";
     pub const LEARNING_ITERATIONS: &str = "learning.iterations";

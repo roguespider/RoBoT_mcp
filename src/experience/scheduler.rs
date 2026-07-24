@@ -49,25 +49,25 @@ pub struct ScheduledTask {
 pub enum TaskType {
     /// Run reflection on recent experiences
     Reflection,
-    
+
     /// Run hypothesis evaluation
     HypothesisEvaluation,
-    
+
     /// Run exploration analysis
     ExplorationAnalysis,
-    
+
     /// Clean up old data
     Cleanup,
-    
+
     /// Run metrics collection
     MetricsCollection,
-    
+
     /// Run evolution maintenance
     EvolutionMaintenance,
-    
+
     /// Run reputation decay
     ReputationDecay,
-    
+
     /// Custom task
     Custom,
 }
@@ -77,16 +77,16 @@ pub enum TaskType {
 pub enum TaskSchedule {
     /// Run at fixed interval (seconds)
     Interval { seconds: u64 },
-    
+
     /// Run at specific times (cron-like, hour:minute)
     Daily { hour: u8, minute: u8 },
-    
+
     /// Run on specific days of week (0=Sunday, 6=Saturday)
     Weekly { day: u8, hour: u8, minute: u8 },
-    
+
     /// Run once at specific time
     Once { at: DateTime<Utc> },
-    
+
     /// Manual trigger only
     Manual,
 }
@@ -96,16 +96,16 @@ pub enum TaskSchedule {
 pub enum TaskStatus {
     /// Scheduled and waiting
     Scheduled,
-    
+
     /// Currently running
     Running,
-    
+
     /// Completed successfully
     Completed,
-    
+
     /// Failed to execute
     Failed,
-    
+
     /// Disabled by user
     Disabled,
 }
@@ -126,6 +126,7 @@ impl Scheduler {
     }
 
     /// Load tasks from database
+    #[allow(dead_code)]
     pub async fn load_tasks(&self) -> Result<Vec<ScheduledTask>> {
         let conn = self.database.connection()?;
         let tasks = queries::list_scheduled_tasks(&conn)?;
@@ -150,7 +151,7 @@ impl Scheduler {
     ) -> Result<String> {
         let id = Uuid::new_v4().to_string();
         let next_run = Self::calculate_next_run(&schedule);
-        
+
         let task = ScheduledTask {
             id: id.clone(),
             name: name.into(),
@@ -162,7 +163,7 @@ impl Scheduler {
             failure_count: 0,
             created_at: Utc::now(),
         };
-        
+
         self.schedule(task).await
     }
 
@@ -173,6 +174,7 @@ impl Scheduler {
     }
 
     /// Get all tasks
+    #[allow(dead_code)]
     pub async fn list_tasks(&self) -> Result<Vec<ScheduledTask>> {
         let conn = self.database.connection()?;
         queries::list_scheduled_tasks(&conn)
@@ -186,8 +188,7 @@ impl Scheduler {
         Ok(all_tasks
             .into_iter()
             .filter(|t| {
-                t.status == TaskStatus::Scheduled
-                    && t.next_run.map(|n| n <= now).unwrap_or(false)
+                t.status == TaskStatus::Scheduled && t.next_run.map(|n| n <= now).unwrap_or(false)
             })
             .collect())
     }
@@ -231,6 +232,7 @@ impl Scheduler {
     }
 
     /// Cancel (disable) a task
+    #[allow(dead_code)]
     pub async fn cancel_task(&self, id: &str) -> Result<()> {
         let conn = self.database.connection()?;
         if let Some(mut task) = queries::get_scheduled_task(&conn, id)? {
@@ -241,6 +243,7 @@ impl Scheduler {
     }
 
     /// Re-enable a disabled task
+    #[allow(dead_code)]
     pub async fn enable_task(&self, id: &str) -> Result<()> {
         let conn = self.database.connection()?;
         if let Some(mut task) = queries::get_scheduled_task(&conn, id)? {
@@ -255,6 +258,7 @@ impl Scheduler {
     }
 
     /// Delete a task
+    #[allow(dead_code)]
     pub async fn delete_task(&self, id: &str) -> Result<()> {
         let conn = self.database.connection()?;
         queries::delete_scheduled_task(&conn, id)?;
@@ -270,15 +274,18 @@ impl Scheduler {
 
     /// Execute a task by ID
     pub async fn execute_task(&self, id: &str) -> Result<()> {
-        let task = self.get_task(id).await?
+        let task = self
+            .get_task(id)
+            .await?
             .ok_or_else(|| anyhow::anyhow!("Task not found: {}", id))?;
-        
+
         let handlers = self.task_handlers.read().await;
-        let handler = handlers.get(&task.task_type)
+        let handler = handlers
+            .get(&task.task_type)
             .ok_or_else(|| anyhow::anyhow!("No handler for task type: {:?}", task.task_type))?;
-        
+
         self.start_task(id).await?;
-        
+
         match handler.execute().await {
             Ok(()) => {
                 self.complete_task(id).await?;
@@ -288,14 +295,14 @@ impl Scheduler {
                 self.fail_task(id).await?;
             }
         }
-        
+
         Ok(())
     }
 
     /// Calculate next run time based on schedule
     fn calculate_next_run(schedule: &TaskSchedule) -> Option<DateTime<Utc>> {
         let now = Utc::now();
-        
+
         match schedule {
             TaskSchedule::Interval { seconds } => {
                 Some(now + chrono::Duration::seconds(*seconds as i64))
@@ -317,7 +324,7 @@ impl Scheduler {
                 } else {
                     (7 - current_day as i64) + *day as i64
                 };
-                
+
                 let next_date = now.date_naive() + chrono::Duration::days(days_until);
                 let scheduled = next_date.and_hms_opt(*hour as u32, *minute as u32, 0)?;
                 Some(scheduled.and_utc())
@@ -334,24 +341,27 @@ impl Scheduler {
     }
 
     /// Get scheduler statistics
+    #[allow(dead_code)]
     pub async fn get_stats(&self) -> Result<SchedulerStats> {
         let conn = self.database.connection()?;
         let tasks = queries::list_scheduled_tasks(&conn)?;
         let total = tasks.len();
-        
-        let by_status: std::collections::HashMap<TaskStatus, usize> = tasks
-            .iter()
-            .fold(std::collections::HashMap::new(), |mut acc, t| {
-                *acc.entry(t.status).or_insert(0) += 1;
-                acc
-            });
 
-        let by_type: std::collections::HashMap<TaskType, usize> = tasks
-            .iter()
-            .fold(std::collections::HashMap::new(), |mut acc, t| {
-                *acc.entry(t.task_type).or_insert(0) += 1;
-                acc
-            });
+        let by_status: std::collections::HashMap<TaskStatus, usize> =
+            tasks
+                .iter()
+                .fold(std::collections::HashMap::new(), |mut acc, t| {
+                    *acc.entry(t.status).or_insert(0) += 1;
+                    acc
+                });
+
+        let by_type: std::collections::HashMap<TaskType, usize> =
+            tasks
+                .iter()
+                .fold(std::collections::HashMap::new(), |mut acc, t| {
+                    *acc.entry(t.task_type).or_insert(0) += 1;
+                    acc
+                });
 
         let total_failures: u32 = tasks.iter().map(|t| t.failure_count).sum();
 
@@ -366,11 +376,11 @@ impl Scheduler {
     /// Run the scheduler background loop
     pub async fn run(self: Arc<Self>) -> Result<()> {
         tracing::info!("Scheduler started");
-        
+
         loop {
             // Check for due tasks every 30 seconds
             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
-            
+
             if let Ok(due_tasks) = self.get_due_tasks().await {
                 for task in due_tasks {
                     if let Err(e) = self.execute_task(&task.id).await {
@@ -387,7 +397,9 @@ pub trait TaskHandler: Send + Sync {
     fn execute(&self) -> Pin<Box<dyn std::future::Future<Output = Result<()>> + Send>>;
 }
 
-impl<T: Fn() -> F + Send + Sync, F: std::future::Future<Output = Result<()>> + Send + 'static> TaskHandler for T {
+impl<T: Fn() -> F + Send + Sync, F: std::future::Future<Output = Result<()>> + Send + 'static>
+    TaskHandler for T
+{
     fn execute(&self) -> Pin<Box<dyn std::future::Future<Output = Result<()>> + Send>> {
         Box::pin(self())
     }
@@ -395,6 +407,7 @@ impl<T: Fn() -> F + Send + Sync, F: std::future::Future<Output = Result<()>> + S
 
 /// Statistics about the scheduler
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct SchedulerStats {
     pub total_tasks: usize,
     pub tasks_by_status: std::collections::HashMap<TaskStatus, usize>,

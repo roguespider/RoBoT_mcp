@@ -1,10 +1,11 @@
 // /src/experience/reflection/services/generator.rs
 // Generates reflections from experiences
+#![allow(dead_code)]
 
 use uuid::Uuid;
 
-use crate::experience::types::Experience;
 use super::super::{Reflection, ReflectionType};
+use crate::experience::types::Experience;
 
 /// Generates reflections from collections of experiences
 pub struct ReflectionGenerator {
@@ -40,11 +41,7 @@ impl ReflectionGenerator {
         }
 
         let reflection_type = self.infer_reflection_type(experiences);
-        let mut reflection = Reflection::new(
-            Uuid::new_v4().to_string(),
-            reflection_type,
-            title,
-        );
+        let mut reflection = Reflection::new(Uuid::new_v4().to_string(), reflection_type, title);
 
         // Add all experiences to the reflection
         for exp in experiences {
@@ -52,10 +49,9 @@ impl ReflectionGenerator {
         }
 
         // Calculate confidence based on experiences
-        let avg_confidence: f32 = experiences.iter()
-            .map(|e| e.confidence)
-            .sum::<f32>() / experiences.len() as f32;
-        
+        let avg_confidence: f32 =
+            experiences.iter().map(|e| e.confidence).sum::<f32>() / experiences.len() as f32;
+
         reflection.set_confidence(avg_confidence);
 
         // Auto-validate if threshold is met
@@ -64,14 +60,16 @@ impl ReflectionGenerator {
         }
 
         // Generate summary from experience titles
-        let summary = experiences.iter()
+        let summary = experiences
+            .iter()
             .map(|e| e.title.as_str())
             .collect::<Vec<_>>()
             .join(", ");
         reflection.summary = summary;
 
         // Generate description from outcomes
-        let descriptions: Vec<String> = experiences.iter()
+        let descriptions: Vec<String> = experiences
+            .iter()
             .filter_map(|e| e.outcome.message.clone())
             .collect();
         reflection.description = descriptions.join(" ");
@@ -86,11 +84,7 @@ impl ReflectionGenerator {
         title: impl Into<String>,
     ) -> Reflection {
         let reflection_type = self.infer_single_reflection_type(experience);
-        let mut reflection = Reflection::new(
-            Uuid::new_v4().to_string(),
-            reflection_type,
-            title,
-        );
+        let mut reflection = Reflection::new(Uuid::new_v4().to_string(), reflection_type, title);
 
         reflection.add_experience(experience.id.to_string());
         reflection.set_confidence(experience.confidence);
@@ -107,11 +101,15 @@ impl ReflectionGenerator {
     /// Infer the reflection type from a collection of experiences
     fn infer_reflection_type(&self, experiences: &[Experience]) -> ReflectionType {
         // Count outcome kinds
-        let success_count = experiences.iter()
-            .filter(|e| matches!(e.outcome.kind, 
-                crate::experience::types::OutcomeKind::Success |
-                crate::experience::types::OutcomeKind::Partial
-            ))
+        let success_count = experiences
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e.outcome.kind,
+                    crate::experience::types::OutcomeKind::Success
+                        | crate::experience::types::OutcomeKind::Partial
+                )
+            })
             .count();
 
         let failure_count = experiences.len() - success_count;
@@ -151,7 +149,7 @@ impl Default for ReflectionGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::experience::types::{ExperienceOutcome, OutcomeKind, ExperienceType};
+    use crate::experience::types::{ExperienceOutcome, ExperienceType, OutcomeKind};
 
     fn create_test_experience(outcome_kind: OutcomeKind) -> Experience {
         let mut exp = Experience::new(
@@ -160,11 +158,11 @@ mod tests {
             ExperienceType::ToolExecution,
             vec![], // observations
         );
-        exp.outcome = ExperienceOutcome { 
-            kind: outcome_kind, 
-            message: None, 
-            error: None, 
-            duration_ms: None 
+        exp.outcome = ExperienceOutcome {
+            kind: outcome_kind,
+            message: None,
+            error: None,
+            duration_ms: None,
         };
         exp.confidence = 0.8;
         exp.evidence_count = 1;
@@ -179,7 +177,7 @@ mod tests {
             create_test_experience(OutcomeKind::Success),
             create_test_experience(OutcomeKind::Success),
         ];
-        
+
         let reflection = generator.generate_from_experiences(&experiences, "All successful");
         assert!(reflection.is_some());
         let r = reflection.expect("Reflection should be generated for test data");
@@ -194,7 +192,7 @@ mod tests {
             create_test_experience(OutcomeKind::Failure),
             create_test_experience(OutcomeKind::Failure),
         ];
-        
+
         let reflection = generator.generate_from_experiences(&experiences, "All failures");
         assert!(reflection.is_some());
         let r = reflection.expect("Reflection should be generated for test data");
@@ -205,7 +203,7 @@ mod tests {
     fn test_requires_min_experiences() {
         let generator = ReflectionGenerator::new();
         let experiences = vec![create_test_experience(OutcomeKind::Success)];
-        
+
         let reflection = generator.generate_from_experiences(&experiences, "Only one");
         assert!(reflection.is_none());
     }

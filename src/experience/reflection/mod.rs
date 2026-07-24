@@ -1,4 +1,5 @@
 #![allow(clippy::module_inception)]
+#![allow(dead_code)]
 //! ============================================================================
 //! Reflection System
 //! ============================================================================
@@ -42,8 +43,8 @@ pub mod review;
 pub mod services;
 
 // Re-export from submodules
-pub use reflection::Reflection;
 pub use engine::ReflectionEngine;
+pub use reflection::Reflection;
 
 /// ============================================================================
 /// Reflection Types

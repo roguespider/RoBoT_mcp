@@ -1,4 +1,5 @@
 // /src/experience/events/builders.rs
+#![allow(dead_code)]
 
 use chrono::Utc;
 use uuid::Uuid;

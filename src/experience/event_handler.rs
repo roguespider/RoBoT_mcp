@@ -40,6 +40,7 @@ impl EventHandler {
     }
 
     /// Get subscriber count for monitoring
+    #[allow(dead_code)]
     pub fn subscriber_count(&self) -> usize {
         self.bus.subscriber_count()
     }

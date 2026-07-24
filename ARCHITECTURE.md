@@ -14,32 +14,33 @@
 ================================================================================
 ## Table of Contents
 
-01. [Chapter 01 - Vision & Philosophy](#chapter-01-vision--philosophy)
-02. [Chapter 02 - Core Principles](#chapter-02-core-principles)
-03. [Chapter 03 - System Overview](#chapter-03-system-overview)
-04. [Chapter 04 - High-Level Architecture](#chapter-04-high-level-architecture)
-05. [Chapter 05 - Data Flow](#chapter-05-data-flow)
-06. [Chapter 06 - Event System](#chapter-06-event-system)
-07. [Chapter 07 - Experience System](#chapter-07-experience-system)
-08. [Chapter 08 - Memory System](#chapter-08-memory-system)
-09. [Chapter 09 - Knowledge System](#chapter-09-knowledge-system)
-10. [Chapter 10 - Reflection](#chapter-10-reflection)
-11. [Chapter 11 - Hypothesis](#chapter-11-hypothesis)
-12. [Chapter 12 - Reputation](#chapter-12-reputation)
-13. [Chapter 13 - Exploration](#chapter-13-exploration)
-14. [Chapter 14 - Planning](#chapter-14-planning)
-15. [Chapter 15 - Skills](#chapter-15-skills)
-16. [Chapter 16 - Database](#chapter-16-database)
-17. [Chapter 17 - MCP](#chapter-17-mcp)
-18. [Chapter 18 - Services](#chapter-18-services)
-19. [Chapter 19 - Repositories](#chapter-19-repositories)
-20. [Chapter 20 - Coding Standards](#chapter-20-coding-standards)
-21. [Chapter 21 - AI Development Workflow](#chapter-21-ai-development-workflow)
-22. [Chapter 22 - Roadmap](#chapter-22-roadmap)
-23. [Chapter 23 - Future Research](#chapter-23-future-research)
+[Chapter 01 - Vision & Philosophy](#chapter-01---vision--philosophy)
+[Chapter 02 - Core Design Principles](#chapter-02---core-design-principles)
+[Chapter 03 - High Level System Overview](#chapter-03---high-level-system-overview)
+[Chapter 04 - Data Flow](#chapter-04---data-flow)
+[Chapter 05 - Conversation Engine](#chapter-05---conversation-engine)
+[Chapter 06 - Context Engine](#chapter-06---context-engine)
+[Chapter 07 - Memory Engine](#chapter-07---memory-engine)
+[Chapter 08 - Experience Engine](#chapter-08---experience-engine)
+[Chapter 09 - Learning Engine](#chapter-09---learning-engine)
+[Chapter 10 - Planning Engine](#chapter-10---planning-engine)
+[Chapter 11 - Execution Engine](#chapter-11---execution-engine)
+[Chapter 12 - Tool Engine](#chapter-12---tool-engine)
+[Chapter 13 - Memory Hierarchy](#chapter-13---memory-hierarchy)
+[Chapter 14 - Context Lifecycle](#chapter-14---context-lifecycle)
+[Chapter 15 - Retrieval Pipeline](#chapter-15---retrieval-pipeline)
+[Chapter 16 - Prompt Construction](#chapter-16---prompt-construction)
+[Chapter 17 - Strategic Learning](#chapter-17---strategic-learning)
+[Chapter 18 - Confidence System](#chapter-18---confidence-system)
+[Chapter 19 - Knowledge Graph](#chapter-19---knowledge-graph)
+[Chapter 20 - Storage Architecture](#chapter-20---storage-architecture)
+[Chapter 21 - Database Design](#chapter-21---database-design)
+[Chapter 22 - Background Workers](#chapter-22---background-workers)
+[Chapter 23 - AI Contributor Operating Agreement](#chapter-23---ai-contributor-operating-agreement)
+[Appendix A - Complete Workflow](#appendix-a---complete-workflow)
+[Appendix B - Future Research](#appendix-b---future-research)
 
 ================================================================================
-## Chapter 01 - Vision & Philosophy
 
 # RoBoT Architecture Specification
 
@@ -49,7 +50,7 @@
 
 ---
 
-# Chapter 1 - Vision & Philosophy
+## Chapter 01 - Vision & Philosophy
 
 ## Vision
 

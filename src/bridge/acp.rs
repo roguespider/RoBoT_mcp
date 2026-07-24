@@ -1,14 +1,16 @@
 // src/bridge/acp.rs
 // ACP (Agent Communication Protocol) for agent-to-agent communication
-// 
+//
 // NOTE: This module is a placeholder for future multi-agent communication.
 // Currently unused but kept for future expansion.
 
+#![allow(dead_code)]
+
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// ACP message envelope
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +27,12 @@ pub struct AcpMessage {
 
 impl AcpMessage {
     /// Create a new ACP message
-    pub fn new(sender: AcpAgentId, receiver: AcpAgentId, message_type: AcpMessageType, payload: serde_json::Value) -> Self {
+    pub fn new(
+        sender: AcpAgentId,
+        receiver: AcpAgentId,
+        message_type: AcpMessageType,
+        payload: serde_json::Value,
+    ) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             sender,
@@ -164,10 +171,10 @@ pub enum AcpErrorCode {
 pub trait AcpChannel: Send + Sync {
     /// Send a message through the channel
     fn send(&self, message: AcpMessage) -> Result<()>;
-    
+
     /// Receive a message from the channel (non-blocking)
     fn try_recv(&self) -> Result<Option<AcpMessage>>;
-    
+
     /// Receive a message from the channel (blocking)
     fn recv(&self) -> Result<AcpMessage>;
 }
@@ -176,10 +183,10 @@ pub trait AcpChannel: Send + Sync {
 pub trait AcpAgent: Send + Sync {
     /// Get the agent's ID
     fn id(&self) -> &AcpAgentId;
-    
+
     /// Handle an incoming ACP message
     fn handle(&self, message: AcpMessage) -> Result<Option<AcpMessage>>;
-    
+
     /// Get the agent's capabilities
     fn capabilities(&self) -> Vec<AcpCapability>;
 }
@@ -208,26 +215,38 @@ impl AcpRegistry {
     /// Register an agent
     pub fn register(&self, agent: Arc<dyn AcpAgent>) -> Result<()> {
         let id = agent.id().clone();
-        let mut agents = self.agents.write().map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
+        let mut agents = self
+            .agents
+            .write()
+            .map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
         agents.insert(id, agent);
         Ok(())
     }
 
     /// Unregister an agent
     pub fn unregister(&self, id: &AcpAgentId) -> Result<Option<Arc<dyn AcpAgent>>> {
-        let mut agents = self.agents.write().map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
+        let mut agents = self
+            .agents
+            .write()
+            .map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
         Ok(agents.remove(id))
     }
 
     /// Get an agent by ID
     pub fn get(&self, id: &AcpAgentId) -> Result<Option<Arc<dyn AcpAgent>>> {
-        let agents = self.agents.read().map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
+        let agents = self
+            .agents
+            .read()
+            .map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
         Ok(agents.get(id).cloned())
     }
 
     /// List all registered agent IDs
     pub fn list_agents(&self) -> Result<Vec<AcpAgentId>> {
-        let agents = self.agents.read().map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
+        let agents = self
+            .agents
+            .read()
+            .map_err(|_| anyhow::anyhow!("Lock poisoned"))?;
         Ok(agents.keys().cloned().collect())
     }
 }
@@ -251,7 +270,7 @@ impl AcpRouter {
     /// Route a message to the appropriate agent
     pub fn route(&self, message: AcpMessage) -> Result<Option<AcpMessage>> {
         let agent = self.registry.get(&message.receiver)?;
-        
+
         match agent {
             Some(agent) => agent.handle(message),
             None => Err(anyhow::anyhow!("Unknown receiver: {}", message.receiver)),

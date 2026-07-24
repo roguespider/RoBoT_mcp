@@ -1,5 +1,6 @@
 // src/memory/working.rs
 //! Working Memory - Per Architecture §6.3
+#![allow(dead_code)]
 //!
 //! Working Memory contains temporary information used during active tasks.
 //!
@@ -34,10 +35,10 @@ pub struct WorkingMemoryStats {
 pub struct WorkingMemory {
     /// In-memory storage for working memory items
     items: Arc<RwLock<HashMap<Uuid, MemoryItem>>>,
-    
+
     /// Maximum items before eviction
     max_items: usize,
-    
+
     /// Default TTL for items without explicit TTL
     default_ttl: Duration,
 }
@@ -56,12 +57,12 @@ impl WorkingMemory {
     pub async fn store(&self, item: MemoryItem) -> Uuid {
         let id = item.id;
         let mut items = self.items.write().await;
-        
+
         // Evict old items if at capacity
         if items.len() >= self.max_items {
             self.evict_lru(&mut items).await;
         }
-        
+
         items.insert(id, item);
         id
     }
@@ -94,8 +95,8 @@ impl WorkingMemory {
         items
             .values()
             .filter(|item| {
-                item.status == MemoryStatus::Active && 
-                item.content.to_lowercase().contains(&query_lower)
+                item.status == MemoryStatus::Active
+                    && item.content.to_lowercase().contains(&query_lower)
             })
             .cloned()
             .collect()
@@ -137,9 +138,13 @@ impl WorkingMemory {
             .map(|(id, item)| (*id, item.accessed_at))
             .collect();
         sorted.sort_by_key(|(_, accessed)| *accessed);
-        
-        let ids_to_remove: Vec<Uuid> = sorted.into_iter().take(remove_count).map(|(id, _)| id).collect();
-        
+
+        let ids_to_remove: Vec<Uuid> = sorted
+            .into_iter()
+            .take(remove_count)
+            .map(|(id, _)| id)
+            .collect();
+
         for id in ids_to_remove {
             items.remove(&id);
         }
@@ -150,11 +155,9 @@ impl WorkingMemory {
         let cutoff = Utc::now() - max_age;
         let mut items = self.items.write().await;
         let initial_count = items.len();
-        
-        items.retain(|_, item| {
-            item.accessed_at > cutoff || item.status == MemoryStatus::Active
-        });
-        
+
+        items.retain(|_, item| item.accessed_at > cutoff || item.status == MemoryStatus::Active);
+
         initial_count - items.len()
     }
 
@@ -162,14 +165,20 @@ impl WorkingMemory {
     pub async fn stats(&self) -> WorkingMemoryStats {
         let items = self.items.read().await;
         let total = items.len();
-        let active = items.values().filter(|i| i.status == MemoryStatus::Active).count();
-        let archived = items.values().filter(|i| i.status == MemoryStatus::Archived).count();
+        let active = items
+            .values()
+            .filter(|i| i.status == MemoryStatus::Active)
+            .count();
+        let archived = items
+            .values()
+            .filter(|i| i.status == MemoryStatus::Archived)
+            .count();
         let avg_access = if total > 0 {
             items.values().map(|i| i.access_count as f32).sum::<f32>() / total as f32
         } else {
             0.0
         };
-        
+
         WorkingMemoryStats {
             total_items: total,
             active_items: active,
@@ -205,10 +214,10 @@ mod tests {
             "Test content".to_string(),
             "test".to_string(),
         );
-        
+
         let id = memory.store(item).await;
         let retrieved = memory.retrieve(&id).await;
-        
+
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().content, "Test content");
     }
@@ -216,7 +225,7 @@ mod tests {
     #[tokio::test]
     async fn test_search() {
         let memory = WorkingMemory::new(100);
-        
+
         let item1 = MemoryItem::new(
             MemoryLayer::Working,
             MemoryType::Context,
@@ -229,10 +238,10 @@ mod tests {
             "Jumps over the lazy dog".to_string(),
             "test".to_string(),
         );
-        
+
         memory.store(item1).await;
         memory.store(item2).await;
-        
+
         let results = memory.search("quick").await;
         assert_eq!(results.len(), 1);
         assert!(results[0].content.contains("quick"));
@@ -241,7 +250,7 @@ mod tests {
     #[tokio::test]
     async fn test_eviction() {
         let memory = WorkingMemory::new(5);
-        
+
         for i in 0..10 {
             let item = MemoryItem::new(
                 MemoryLayer::Working,
@@ -251,7 +260,7 @@ mod tests {
             );
             memory.store(item).await;
         }
-        
+
         let stats = memory.stats().await;
         assert!(stats.total_items <= 5);
     }

@@ -1,5 +1,6 @@
 // src/memory/permanent.rs
 //! Permanent Memory - Per Architecture §6.3
+#![allow(dead_code)]
 //!
 //! Permanent Memory contains curated knowledge retained after evaluation.
 //!
@@ -34,13 +35,13 @@ pub struct PermanentMemoryStats {
 pub struct PermanentMemory {
     /// In-memory cache for permanent memory items
     cache: Arc<RwLock<HashMap<Uuid, MemoryItem>>>,
-    
+
     /// Index by type
     type_index: Arc<RwLock<HashMap<MemoryType, Vec<Uuid>>>>,
-    
+
     /// Index by tag
     tag_index: Arc<RwLock<HashMap<String, Vec<Uuid>>>>,
-    
+
     /// Maximum cached items
     max_cache_size: usize,
 }
@@ -59,11 +60,11 @@ impl PermanentMemory {
     /// Store an item in permanent memory
     pub async fn store(&self, item: MemoryItem) -> Uuid {
         let id = item.id;
-        
+
         // Store in cache
         let mut cache = self.cache.write().await;
         cache.insert(id, item.clone());
-        
+
         // Update type index
         {
             let mut type_index = self.type_index.write().await;
@@ -72,7 +73,7 @@ impl PermanentMemory {
                 .or_insert_with(Vec::new)
                 .push(id);
         }
-        
+
         // Update tag index
         for tag in &item.tags {
             let mut tag_index = self.tag_index.write().await;
@@ -81,7 +82,7 @@ impl PermanentMemory {
                 .or_insert_with(Vec::new)
                 .push(id);
         }
-        
+
         id
     }
 
@@ -100,7 +101,7 @@ impl PermanentMemory {
     pub async fn find_by_type(&self, memory_type: MemoryType) -> Vec<MemoryItem> {
         let type_index = self.type_index.read().await;
         let cache = self.cache.read().await;
-        
+
         type_index
             .get(&memory_type)
             .map(|ids| {
@@ -116,7 +117,7 @@ impl PermanentMemory {
     pub async fn find_by_tag(&self, tag: &str) -> Vec<MemoryItem> {
         let tag_index = self.tag_index.read().await;
         let cache = self.cache.read().await;
-        
+
         tag_index
             .get(tag)
             .map(|ids| {
@@ -135,8 +136,8 @@ impl PermanentMemory {
         cache
             .values()
             .filter(|item| {
-                item.status == MemoryStatus::Active && 
-                item.content.to_lowercase().contains(&query_lower)
+                item.status == MemoryStatus::Active
+                    && item.content.to_lowercase().contains(&query_lower)
             })
             .cloned()
             .collect()
@@ -147,10 +148,7 @@ impl PermanentMemory {
         let cache = self.cache.read().await;
         cache
             .values()
-            .filter(|item| {
-                item.status == MemoryStatus::Active && 
-                item.confidence >= min_confidence
-            })
+            .filter(|item| item.status == MemoryStatus::Active && item.confidence >= min_confidence)
             .cloned()
             .collect()
     }
@@ -158,7 +156,7 @@ impl PermanentMemory {
     /// Get related items
     pub async fn get_related(&self, id: &Uuid) -> Vec<MemoryItem> {
         let cache = self.cache.read().await;
-        
+
         if let Some(item) = cache.get(id) {
             item.related_ids
                 .iter()
@@ -208,19 +206,27 @@ impl PermanentMemory {
         let mut total_confidence = 0.0;
         let mut total_importance = 0.0;
         let mut count = 0;
-        
+
         for item in cache.values().filter(|i| i.status == MemoryStatus::Active) {
             *by_type.entry(item.memory_type.to_string()).or_insert(0) += 1;
             total_confidence += item.confidence;
             total_importance += item.importance;
             count += 1;
         }
-        
+
         PermanentMemoryStats {
             total_items: cache.len(),
             by_type,
-            avg_confidence: if count > 0 { total_confidence / count as f32 } else { 0.0 },
-            avg_importance: if count > 0 { total_importance / count as f32 } else { 0.0 },
+            avg_confidence: if count > 0 {
+                total_confidence / count as f32
+            } else {
+                0.0
+            },
+            avg_importance: if count > 0 {
+                total_importance / count as f32
+            } else {
+                0.0
+            },
         }
     }
 
@@ -229,7 +235,7 @@ impl PermanentMemory {
         let mut cache = self.cache.write().await;
         let mut type_index = self.type_index.write().await;
         let mut tag_index = self.tag_index.write().await;
-        
+
         cache.clear();
         type_index.clear();
         tag_index.clear();
@@ -258,10 +264,10 @@ mod tests {
         );
         item.add_tag("fact");
         item.add_tag("important");
-        
+
         let id = memory.store(item).await;
         let retrieved = memory.retrieve(&id).await;
-        
+
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().content, "Important fact");
     }
@@ -269,7 +275,7 @@ mod tests {
     #[tokio::test]
     async fn test_find_by_type() {
         let memory = PermanentMemory::new(100);
-        
+
         let item1 = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -282,13 +288,13 @@ mod tests {
             "Skill item".to_string(),
             "test".to_string(),
         );
-        
+
         memory.store(item1).await;
         memory.store(item2).await;
-        
+
         let knowledge_items = memory.find_by_type(MemoryType::Knowledge).await;
         assert_eq!(knowledge_items.len(), 1);
-        
+
         let skill_items = memory.find_by_type(MemoryType::Skill).await;
         assert_eq!(skill_items.len(), 1);
     }
@@ -296,7 +302,7 @@ mod tests {
     #[tokio::test]
     async fn test_find_by_tag() {
         let memory = PermanentMemory::new(100);
-        
+
         let mut item = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -305,12 +311,12 @@ mod tests {
         );
         item.add_tag("rust");
         item.add_tag("programming");
-        
+
         memory.store(item).await;
-        
+
         let rust_items = memory.find_by_tag("rust").await;
         assert_eq!(rust_items.len(), 1);
-        
+
         let rust_items = memory.find_by_tag("programming").await;
         assert_eq!(rust_items.len(), 1);
     }
@@ -318,7 +324,7 @@ mod tests {
     #[tokio::test]
     async fn test_confidence_filtering() {
         let memory = PermanentMemory::new(100);
-        
+
         let mut item1 = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -326,7 +332,7 @@ mod tests {
             "test".to_string(),
         );
         item1.update_confidence(0.9);
-        
+
         let mut item2 = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -334,10 +340,10 @@ mod tests {
             "test".to_string(),
         );
         item2.update_confidence(0.3);
-        
+
         memory.store(item1).await;
         memory.store(item2).await;
-        
+
         let confident_items = memory.find_confident(0.8).await;
         assert_eq!(confident_items.len(), 1);
         assert!(confident_items[0].content.contains("High"));

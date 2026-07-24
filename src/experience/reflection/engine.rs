@@ -1,5 +1,6 @@
 // /src/experience/reflection/engine.rs
 // The main Reflection Engine that orchestrates all reflection services
+#![allow(dead_code)]
 
 use chrono::Utc;
 use std::collections::HashMap;
@@ -11,24 +12,24 @@ use anyhow::Result;
 
 use super::insight::Insight;
 use super::pattern::{Pattern, PatternType};
-use super::{Reflection, ReflectionStatus, ReflectionType};
 use super::services::analyzer::ReflectionAnalyzer;
 use super::services::generator::ReflectionGenerator;
 use super::services::repository::ReflectionRepository;
 use super::services::validator::ReflectionValidator;
+use super::{Reflection, ReflectionStatus, ReflectionType};
 
 /// Configuration for the reflection engine
 #[derive(Debug, Clone)]
 pub struct ReflectionEngineConfig {
     /// Minimum experiences before auto-generating reflection
     pub min_experiences_for_auto_reflection: usize,
-    
+
     /// Minimum confidence for valid reflection
     pub min_confidence: f32,
-    
+
     /// Auto-validate reflections above this confidence
     pub auto_validate_threshold: f32,
-    
+
     /// Maximum reflections to keep in memory
     pub max_cached_reflections: usize,
 }
@@ -83,32 +84,29 @@ impl ReflectionEngine {
         title: impl Into<String>,
     ) -> Result<Option<Reflection>> {
         let mut reflection = self.generator.generate_from_experiences(experiences, title);
-        
+
         if let Some(ref r) = reflection {
             // Validate the reflection
             let validation = self.validator.validate(r);
-            
+
             if !validation.is_valid {
-                tracing::warn!(
-                    "Reflection validation failed: {:?}",
-                    validation.issues
-                );
+                tracing::warn!("Reflection validation failed: {:?}", validation.issues);
             }
-            
+
             // Auto-validate if threshold met
             if validation.score >= self.config.auto_validate_threshold {
                 if let Some(ref mut r) = reflection {
                     r.validate();
                 }
             }
-            
+
             // Save to repository
             if let Some(ref r) = reflection {
                 self.repository.save(r.clone())?;
                 tracing::info!("Generated reflection: {}", r.id);
             }
         }
-        
+
         Ok(reflection)
     }
 
@@ -119,16 +117,16 @@ impl ReflectionEngine {
         title: impl Into<String>,
     ) -> Result<Reflection> {
         let mut reflection = self.generator.generate_from_single(experience, title);
-        
+
         // Validate
         let validation = self.validator.validate(&reflection);
         if validation.score >= self.config.auto_validate_threshold {
             reflection.validate();
         }
-        
+
         // Save
         self.repository.save(reflection.clone())?;
-        
+
         Ok(reflection)
     }
 
@@ -139,18 +137,25 @@ impl ReflectionEngine {
     ) -> Result<AnalysisReport> {
         // Use analyzer to find patterns and themes
         let analysis = self.analyzer.analyze_experiences(experiences);
-        
+
         // Store detected patterns
         for pattern_name in &analysis.patterns {
             let pattern = Pattern::with_type(pattern_name.clone(), PatternType::Frequency);
-            self.patterns.write().await.insert(pattern.id.clone(), pattern);
+            self.patterns
+                .write()
+                .await
+                .insert(pattern.id.clone(), pattern);
         }
-        
+
         Ok(AnalysisReport {
             patterns: analysis.patterns,
             themes: analysis.themes,
             recommendations: analysis.recommendations,
-            confidence: analysis.confidence_indicators.first().copied().unwrap_or(0.0),
+            confidence: analysis
+                .confidence_indicators
+                .first()
+                .copied()
+                .unwrap_or(0.0),
         })
     }
 
@@ -158,7 +163,7 @@ impl ReflectionEngine {
     pub async fn validate_reflection(&self, reflection: &Reflection) -> Result<ValidationReport> {
         let result = self.validator.validate(reflection);
         let quality = self.analyzer.analyze_reflection(reflection);
-        
+
         Ok(ValidationReport {
             is_valid: result.is_valid,
             score: result.score,
@@ -181,13 +186,16 @@ impl ReflectionEngine {
             statement,
             super::insight::InsightType::General,
         );
-        
+
         for rid in &reflection_ids {
             insight.add_reflection(rid);
         }
-        
-        self.insights.write().await.insert(insight.id.clone(), insight.clone());
-        
+
+        self.insights
+            .write()
+            .await
+            .insert(insight.id.clone(), insight.clone());
+
         tracing::info!("Created insight: {}", insight.id);
         Ok(insight)
     }
@@ -260,12 +268,16 @@ impl ReflectionEngine {
 
     /// List reflections by type
     pub async fn list_by_type(&self, reflection_type: ReflectionType) -> Vec<Reflection> {
-        self.repository.list_by_type(reflection_type).unwrap_or_default()
+        self.repository
+            .list_by_type(reflection_type)
+            .unwrap_or_default()
     }
 
     /// List validated reflections
     pub async fn list_validated(&self) -> Vec<Reflection> {
-        self.repository.list_validated(self.config.min_confidence).unwrap_or_default()
+        self.repository
+            .list_validated(self.config.min_confidence)
+            .unwrap_or_default()
     }
 
     /// Search reflections
@@ -283,18 +295,18 @@ impl ReflectionEngine {
     pub async fn archive_old(&self, days: i64) -> Result<usize> {
         let cutoff = chrono::Utc::now() - chrono::Duration::days(days);
         let mut count = 0;
-        
+
         let reflections = self.repository.list_all()?;
         for mut reflection in reflections {
-            if reflection.metadata.updated_at < cutoff 
-                && reflection.status == ReflectionStatus::Validated 
+            if reflection.metadata.updated_at < cutoff
+                && reflection.status == ReflectionStatus::Validated
             {
                 reflection.archive();
                 self.repository.save(reflection)?;
                 count += 1;
             }
         }
-        
+
         tracing::info!("Archived {} old reflections", count);
         Ok(count)
     }
@@ -303,7 +315,7 @@ impl ReflectionEngine {
     pub async fn get_stats(&self) -> EngineStats {
         let insights = self.insights.read().await;
         let patterns = self.patterns.read().await;
-        
+
         EngineStats {
             total_reflections: self.repository.count().unwrap_or(0),
             total_insights: insights.len(),

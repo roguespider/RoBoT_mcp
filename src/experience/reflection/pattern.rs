@@ -1,5 +1,6 @@
 // /src/experience/reflection/pattern.rs
 // Pattern detection and representation
+#![allow(dead_code)]
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -41,25 +42,25 @@ pub struct Pattern {
 pub enum PatternType {
     /// Sequential pattern (A always follows B)
     Sequential,
-    
+
     /// Frequency pattern (X happens frequently)
     Frequency,
-    
+
     /// Correlation pattern (X often occurs with Y)
     Correlation,
-    
+
     /// Anomaly pattern (X is unusual)
     Anomaly,
-    
+
     /// Success pattern (X tends to succeed)
     Success,
-    
+
     /// Failure pattern (X tends to fail)
     Failure,
-    
+
     /// Temporal pattern (X happens at certain times)
     Temporal,
-    
+
     /// Custom pattern type
     Custom(String),
 }
@@ -116,7 +117,7 @@ impl Pattern {
         // - More evidence = higher confidence
         let occurrence_factor = (self.occurrences as f32 / 10.0).min(1.0);
         let evidence_factor = (self.evidence.len() as f32 / 5.0).min(1.0);
-        
+
         self.confidence = (occurrence_factor * 0.4 + evidence_factor * 0.6).min(1.0);
         self.last_updated = Utc::now();
     }
@@ -157,12 +158,12 @@ impl Pattern {
                 self.add_evidence(evidence.clone());
             }
         }
-        
+
         // Update description if other has higher confidence
         if other.confidence > self.confidence {
             self.description = other.description.clone();
         }
-        
+
         self.last_updated = Utc::now();
     }
 
@@ -188,7 +189,9 @@ impl Pattern {
 #[allow(clippy::derive_ord_xor_partial_ord)]
 impl Ord for Pattern {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.confidence.partial_cmp(&other.confidence).unwrap_or(std::cmp::Ordering::Equal)
+        self.confidence
+            .partial_cmp(&other.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 

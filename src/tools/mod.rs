@@ -1,9 +1,8 @@
 // src/tools/mod.rs
 // MCP tools for Zed Editor integration
 
-
-use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 
 use crate::bridge::mcp::McpContext;
 
@@ -45,15 +44,16 @@ impl ToolOutput {
     }
 }
 
-pub mod memory;
+pub mod agent;
 pub mod experience;
+pub mod hypothesis;
+pub mod ingestor;
+pub mod knowledge;
+pub mod memory;
+pub mod planner;
 pub mod reflection;
 pub mod search;
-pub mod ingestor;
-pub mod agent;
-pub mod hypothesis;
-pub mod knowledge;
-pub mod planner;
+pub mod workflow;
 
 /// Global tool registry (lazily initialized, using Mutex since only written once at startup)
 static TOOL_REGISTRY: std::sync::OnceLock<Arc<Mutex<ToolRegistry>>> = std::sync::OnceLock::new();
@@ -73,43 +73,47 @@ impl ToolRegistry {
 pub fn register_tools(context: &Arc<McpContext>) {
     let _ = context; // suppress unused warning
     let registry = TOOL_REGISTRY.get_or_init(|| Arc::new(Mutex::new(ToolRegistry::new())));
-    
+
     // Register memory tools
     let tools = memory::definitions::all();
     tracing::info!("Registered {} memory tools", tools.len());
-    
+
     // Register experience tools
     let tools = experience::definitions::all();
     tracing::info!("Registered {} experience tools", tools.len());
-    
+
     // Register reflection tools
     let tools = reflection::definitions::all();
     tracing::info!("Registered {} reflection tools", tools.len());
-    
+
     // Register search tools
     let tools = search::definitions::all();
     tracing::info!("Registered {} search tools", tools.len());
-    
+
     // Register ingestor tools
     let tools = ingestor::definitions::all();
     tracing::info!("Registered {} ingestor tools", tools.len());
-    
+
     // Register agent tools
     let tools = agent::definitions::all();
     tracing::info!("Registered {} agent tools", tools.len());
-    
+
     // Register hypothesis tools
     let tools = hypothesis::definitions::all();
     tracing::info!("Registered {} hypothesis tools", tools.len());
-    
+
     // Register knowledge tools
     let tools = knowledge::definitions::all();
     tracing::info!("Registered {} knowledge tools", tools.len());
-    
+
     // Register planner tools
     let tools = planner::definitions::all();
     tracing::info!("Registered {} planner tools", tools.len());
-    
+
+    // Register workflow tools
+    let tools = workflow::definitions::all();
+    tracing::info!("Registered {} workflow tools", tools.len());
+
     // Collect all tools
     let all_tools = memory::definitions::all()
         .into_iter()
@@ -121,8 +125,9 @@ pub fn register_tools(context: &Arc<McpContext>) {
         .chain(hypothesis::definitions::all())
         .chain(knowledge::definitions::all())
         .chain(planner::definitions::all())
+        .chain(workflow::definitions::all())
         .collect();
-    
+
     // Update registry using mutex lock
     let mut reg = registry.lock().unwrap();
     reg.tools = all_tools;
@@ -141,8 +146,9 @@ pub fn get_tools() -> Vec<crate::bridge::mcp::McpTool> {
 /// Get all registered tools (async version for use inside async context)
 pub async fn get_tools_async() -> Vec<crate::bridge::mcp::McpTool> {
     // Use blocking lock inside async context (safe since it's only read)
-    let registry = TOOL_REGISTRY.get().expect("Tool registry should be initialized by register_tools()");
+    let registry = TOOL_REGISTRY
+        .get()
+        .expect("Tool registry should be initialized by register_tools()");
     let tools = registry.lock().unwrap().tools.clone();
     tools
 }
-

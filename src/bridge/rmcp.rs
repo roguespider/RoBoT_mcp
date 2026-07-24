@@ -5,20 +5,17 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use rmcp::{
-    serve_server,
-    tool_router,
-    tool,
-    tool_handler,
     handler::server::wrapper::Parameters,
     handler::server::ServerHandler,
-    model::{ServerInfo, Implementation, ContentBlock, TextContent},
+    model::{ContentBlock, Implementation, ServerInfo, TextContent},
+    serve_server, tool, tool_handler, tool_router,
 };
 
 use super::mcp::McpContext;
 use crate::tools::{self, ToolOutput};
 
 /// Convert ToolOutput to MCP-compliant ContentBlock
-/// 
+///
 /// MCP protocol requires tool responses to have a `content` array with text/image/audio blocks:
 /// ```json
 /// {
@@ -32,7 +29,10 @@ fn tool_output_to_content(output: ToolOutput) -> ContentBlock {
         serde_json::to_string_pretty(&output.data)
             .unwrap_or_else(|_| "{\"success\": true}".to_string())
     } else {
-        format!("Error: {}", output.error.unwrap_or_else(|| "Unknown error".to_string()))
+        format!(
+            "Error: {}",
+            output.error.unwrap_or_else(|| "Unknown error".to_string())
+        )
     };
 
     ContentBlock::Text(TextContent::new(text))
@@ -53,19 +53,19 @@ impl RmcpServer {
 }
 
 /// Create a new RMCP server with stdio transport
-pub async fn run_stdio_server(
-    name: &str,
-    version: &str,
-    context: Arc<McpContext>,
-) -> Result<()> {
-    tracing::info!("Starting RMCP server '{}' v{} with stdio transport", name, version);
-    
+pub async fn run_stdio_server(name: &str, version: &str, context: Arc<McpContext>) -> Result<()> {
+    tracing::info!(
+        "Starting RMCP server '{}' v{} with stdio transport",
+        name,
+        version
+    );
+
     let handler = McpServerHandler {
         context,
         name: name.to_string(),
         version: version.to_string(),
     };
-    
+
     // Log the tools that will be exposed
     let router = McpServerHandler::tool_router();
     let tools = router.list_all();
@@ -73,27 +73,27 @@ pub async fn run_stdio_server(
     for tool in &tools {
         tracing::debug!("  - {}: {:?}", tool.name, tool.description);
     }
-    
+
     // Use tokio's stdin/stdout - this should work on all platforms
     // On Windows, tokio handles the complexity of async IO with subprocess pipes
     let (stdin, stdout) = (tokio::io::stdin(), tokio::io::stdout());
-    
+
     // For debugging: print a marker to stderr so we can see startup
     eprintln!("DEBUG: About to call serve_server");
-    
+
     // Start the server - this will block waiting for MCP messages
     let running = serve_server(handler, (stdin, stdout)).await?;
-    
+
     eprintln!("DEBUG: serve_server returned");
     eprintln!("DEBUG: Server is now listening for messages...");
-    
+
     tracing::info!("Server started, waiting for connections...");
-    
+
     // Wait for the service to complete (until transport closes)
     let quit_reason = running.waiting().await?;
-    
+
     tracing::info!("Server stopped: {:?}", quit_reason);
-    
+
     Ok(())
 }
 
@@ -108,13 +108,20 @@ struct McpServerHandler {
 impl McpServerHandler {
     #[allow(dead_code)]
     fn new(context: Arc<McpContext>, name: String, version: String) -> Self {
-        Self { context, name, version }
+        Self {
+            context,
+            name,
+            version,
+        }
     }
 }
 
 #[tool_router]
 impl McpServerHandler {
-    #[tool(name = "get_workflow", description = "MANDATORY: Get workflow rules. MUST be called before any other tool. Returns the required workflow for this MCP server.")]
+    #[tool(
+        name = "get_workflow",
+        description = "MANDATORY: Get workflow rules. MUST be called before any other tool. Returns the required workflow for this MCP server."
+    )]
     async fn get_workflow(
         &self,
         Parameters(input): Parameters<tools::agent::GetWorkflowInput>,
@@ -125,7 +132,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "store_memory", description = "Store a new memory in the knowledge base")]
+    #[tool(
+        name = "store_memory",
+        description = "Store a new memory in the knowledge base"
+    )]
     async fn store_memory(
         &self,
         Parameters(input): Parameters<tools::memory::StoreMemoryInput>,
@@ -178,13 +188,18 @@ impl McpServerHandler {
             input,
             &self.context.coordinator,
             &self.context.database,
-        ).await {
+        )
+        .await
+        {
             Ok(result) => tool_output_to_content(result),
             Err(e) => tool_output_to_content(ToolOutput::error(e)),
         }
     }
 
-    #[tool(name = "get_experience_stats", description = "Get experience statistics")]
+    #[tool(
+        name = "get_experience_stats",
+        description = "Get experience statistics"
+    )]
     async fn get_experience_stats(
         &self,
         Parameters(input): Parameters<tools::experience::GetExperienceStatsInput>,
@@ -206,7 +221,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_experience", description = "Get a specific experience by ID")]
+    #[tool(
+        name = "get_experience",
+        description = "Get a specific experience by ID"
+    )]
     async fn get_experience(
         &self,
         Parameters(input): Parameters<tools::experience::GetExperienceInput>,
@@ -217,7 +235,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_insights", description = "Get actionable insights from reflections")]
+    #[tool(
+        name = "get_insights",
+        description = "Get actionable insights from reflections"
+    )]
     async fn get_insights(
         &self,
         Parameters(input): Parameters<tools::reflection::GetInsightsInput>,
@@ -239,7 +260,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "analyze_patterns", description = "Analyze experiences to detect patterns")]
+    #[tool(
+        name = "analyze_patterns",
+        description = "Analyze experiences to detect patterns"
+    )]
     async fn analyze_patterns(
         &self,
         Parameters(input): Parameters<tools::reflection::AnalyzePatternsInput>,
@@ -261,7 +285,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "global_search", description = "Search across all memories and experiences")]
+    #[tool(
+        name = "global_search",
+        description = "Search across all memories and experiences"
+    )]
     async fn global_search(
         &self,
         Parameters(input): Parameters<tools::search::GlobalSearchInput>,
@@ -272,7 +299,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_recommendations", description = "Get recommendations based on learned patterns")]
+    #[tool(
+        name = "get_recommendations",
+        description = "Get recommendations based on learned patterns"
+    )]
     async fn get_recommendations(
         &self,
         Parameters(input): Parameters<tools::search::GetRecommendationsInput>,
@@ -283,7 +313,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_reputation", description = "Get reputation score for a target")]
+    #[tool(
+        name = "get_reputation",
+        description = "Get reputation score for a target"
+    )]
     async fn get_reputation(
         &self,
         Parameters(input): Parameters<tools::search::GetReputationInput>,
@@ -294,7 +327,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "ingest_files", description = "Ingest files from a folder into memory")]
+    #[tool(
+        name = "ingest_files",
+        description = "Ingest files from a folder into memory"
+    )]
     async fn ingest_files(
         &self,
         Parameters(input): Parameters<tools::ingestor::IngestFilesInput>,
@@ -305,7 +341,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "list_importable", description = "List files available for import")]
+    #[tool(
+        name = "list_importable",
+        description = "List files available for import"
+    )]
     async fn list_importable(
         &self,
         Parameters(input): Parameters<tools::ingestor::ListImportableInput>,
@@ -316,7 +355,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "transcribe_audio", description = "Transcribe an audio file to text")]
+    #[tool(
+        name = "transcribe_audio",
+        description = "Transcribe an audio file to text"
+    )]
     async fn transcribe_audio(
         &self,
         Parameters(input): Parameters<tools::ingestor::TranscribeAudioInput>,
@@ -327,7 +369,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "list_ingested_files", description = "List files that have been ingested")]
+    #[tool(
+        name = "list_ingested_files",
+        description = "List files that have been ingested"
+    )]
     async fn list_ingested_files(
         &self,
         Parameters(input): Parameters<tools::ingestor::ListIngestedFilesInput>,
@@ -338,7 +383,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "delete_ingested_files", description = "Delete successfully ingested files")]
+    #[tool(
+        name = "delete_ingested_files",
+        description = "Delete successfully ingested files"
+    )]
     async fn delete_ingested_files(
         &self,
         Parameters(input): Parameters<tools::ingestor::DeleteIngestedFilesInput>,
@@ -349,7 +397,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "list_tools", description = "List all available MCP tools with optional filter")]
+    #[tool(
+        name = "list_tools",
+        description = "List all available MCP tools with optional filter"
+    )]
     async fn list_tools(
         &self,
         Parameters(input): Parameters<tools::agent::ListToolsInput>,
@@ -360,7 +411,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_tool", description = "Get detailed information about a specific tool")]
+    #[tool(
+        name = "get_tool",
+        description = "Get detailed information about a specific tool"
+    )]
     async fn get_tool(
         &self,
         Parameters(input): Parameters<tools::agent::GetToolInput>,
@@ -371,7 +425,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "connect_mcp_server", description = "Connect to an external MCP server via child process")]
+    #[tool(
+        name = "connect_mcp_server",
+        description = "Connect to an external MCP server via child process"
+    )]
     async fn connect_mcp_server(
         &self,
         Parameters(input): Parameters<tools::agent::ConnectMcpServerInput>,
@@ -382,7 +439,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "call_tool", description = "Call a tool on a connected MCP server")]
+    #[tool(
+        name = "call_tool",
+        description = "Call a tool on a connected MCP server"
+    )]
     async fn call_tool(
         &self,
         Parameters(input): Parameters<tools::agent::CallMcpToolInput>,
@@ -398,7 +458,10 @@ impl McpServerHandler {
     // Observation -> Hypothesis -> Test -> Evidence -> Knowledge
     // ========================================================================
 
-    #[tool(name = "record_observation", description = "Record an observation. Observations are the starting point for learning - record successes, failures, patterns, or anomalies.")]
+    #[tool(
+        name = "record_observation",
+        description = "Record an observation. Observations are the starting point for learning - record successes, failures, patterns, or anomalies."
+    )]
     async fn record_observation(
         &self,
         Parameters(input): Parameters<tools::hypothesis::RecordObservationInput>,
@@ -409,7 +472,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "create_hypothesis", description = "Create a testable hypothesis from observations.")]
+    #[tool(
+        name = "create_hypothesis",
+        description = "Create a testable hypothesis from observations."
+    )]
     async fn create_hypothesis(
         &self,
         Parameters(input): Parameters<tools::hypothesis::CreateHypothesisInput>,
@@ -420,7 +486,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "add_evidence", description = "Add evidence to a hypothesis. Evidence can support or contradict.")]
+    #[tool(
+        name = "add_evidence",
+        description = "Add evidence to a hypothesis. Evidence can support or contradict."
+    )]
     async fn add_evidence(
         &self,
         Parameters(input): Parameters<tools::hypothesis::AddEvidenceInput>,
@@ -431,7 +500,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_hypothesis", description = "Get details of a specific hypothesis including all its evidence.")]
+    #[tool(
+        name = "get_hypothesis",
+        description = "Get details of a specific hypothesis including all its evidence."
+    )]
     async fn get_hypothesis(
         &self,
         Parameters(input): Parameters<tools::hypothesis::GetHypothesisInput>,
@@ -442,7 +514,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "list_hypotheses", description = "List all hypotheses with optional filters.")]
+    #[tool(
+        name = "list_hypotheses",
+        description = "List all hypotheses with optional filters."
+    )]
     async fn list_hypotheses(
         &self,
         Parameters(input): Parameters<tools::hypothesis::ListHypothesesInput>,
@@ -453,7 +528,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "list_observations", description = "List recorded observations.")]
+    #[tool(
+        name = "list_observations",
+        description = "List recorded observations."
+    )]
     async fn list_observations(
         &self,
         Parameters(input): Parameters<tools::hypothesis::ListObservationsInput>,
@@ -464,7 +542,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "evaluate_hypothesis", description = "Evaluate a hypothesis based on its evidence and update its status.")]
+    #[tool(
+        name = "evaluate_hypothesis",
+        description = "Evaluate a hypothesis based on its evidence and update its status."
+    )]
     async fn evaluate_hypothesis(
         &self,
         Parameters(input): Parameters<tools::hypothesis::EvaluateHypothesisInput>,
@@ -475,7 +556,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "get_knowledge", description = "Get learned knowledge extracted from validated hypotheses.")]
+    #[tool(
+        name = "get_knowledge",
+        description = "Get learned knowledge extracted from validated hypotheses."
+    )]
     async fn get_knowledge(
         &self,
         Parameters(input): Parameters<tools::hypothesis::GetKnowledgeInput>,
@@ -486,7 +570,10 @@ impl McpServerHandler {
         }
     }
 
-    #[tool(name = "extract_knowledge", description = "Extract knowledge from a validated hypothesis into reusable knowledge.")]
+    #[tool(
+        name = "extract_knowledge",
+        description = "Extract knowledge from a validated hypothesis into reusable knowledge."
+    )]
     async fn extract_knowledge(
         &self,
         Parameters(input): Parameters<tools::hypothesis::ExtractKnowledgeInput>,
@@ -498,44 +585,70 @@ impl McpServerHandler {
     }
 
     // Knowledge tools
-    #[tool(name = "add_knowledge", description = "Add new validated knowledge to the knowledge base")]
+    #[tool(
+        name = "add_knowledge",
+        description = "Add new validated knowledge to the knowledge base"
+    )]
     async fn add_knowledge(
         &self,
         Parameters(input): Parameters<tools::knowledge::AddKnowledgeInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::knowledge::execute_add_knowledge(input, &self.context.knowledge).await)
+        tool_output_to_content(
+            tools::knowledge::execute_add_knowledge(input, &self.context.knowledge).await,
+        )
     }
 
-    #[tool(name = "query_knowledge", description = "Query the knowledge base for relevant knowledge")]
+    #[tool(
+        name = "query_knowledge",
+        description = "Query the knowledge base for relevant knowledge"
+    )]
     async fn query_knowledge(
         &self,
         Parameters(input): Parameters<tools::knowledge::QueryKnowledgeInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::knowledge::execute_query_knowledge(input, &self.context.knowledge).await)
+        tool_output_to_content(
+            tools::knowledge::execute_query_knowledge(input, &self.context.knowledge).await,
+        )
     }
 
-    #[tool(name = "record_knowledge_application", description = "Record the result of applying knowledge")]
+    #[tool(
+        name = "record_knowledge_application",
+        description = "Record the result of applying knowledge"
+    )]
     async fn record_knowledge_application(
         &self,
         Parameters(input): Parameters<tools::knowledge::RecordKnowledgeApplicationInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::knowledge::execute_record_knowledge_application(input, &self.context.knowledge).await)
+        tool_output_to_content(
+            tools::knowledge::execute_record_knowledge_application(input, &self.context.knowledge)
+                .await,
+        )
     }
 
-    #[tool(name = "get_knowledge_stats", description = "Get statistics about the knowledge base")]
+    #[tool(
+        name = "get_knowledge_stats",
+        description = "Get statistics about the knowledge base"
+    )]
     async fn get_knowledge_stats(
         &self,
         Parameters(input): Parameters<tools::knowledge::GetKnowledgeStatsInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::knowledge::execute_get_knowledge_stats(input, &self.context.knowledge).await)
+        tool_output_to_content(
+            tools::knowledge::execute_get_knowledge_stats(input, &self.context.knowledge).await,
+        )
     }
 
-    #[tool(name = "get_mature_knowledge", description = "Get all mature (high-confidence) knowledge")]
+    #[tool(
+        name = "get_mature_knowledge",
+        description = "Get all mature (high-confidence) knowledge"
+    )]
     async fn get_mature_knowledge(
         &self,
         Parameters(input): Parameters<tools::knowledge::GetMatureKnowledgeInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::knowledge::execute_get_mature_knowledge(input, &self.context.knowledge).await)
+        tool_output_to_content(
+            tools::knowledge::execute_get_mature_knowledge(input, &self.context.knowledge).await,
+        )
     }
 
     // Planner tools
@@ -544,7 +657,9 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::CreatePlanInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_create_plan(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_create_plan(input, &self.context.planner).await,
+        )
     }
 
     #[tool(name = "add_plan_step", description = "Add a step to an existing plan")]
@@ -552,15 +667,22 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::AddPlanStepInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_add_plan_step(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_add_plan_step(input, &self.context.planner).await,
+        )
     }
 
-    #[tool(name = "add_step_dependency", description = "Add a dependency between steps")]
+    #[tool(
+        name = "add_step_dependency",
+        description = "Add a dependency between steps"
+    )]
     async fn add_step_dependency(
         &self,
         Parameters(input): Parameters<tools::planner::AddStepDependencyInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_add_step_dependency(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_add_step_dependency(input, &self.context.planner).await,
+        )
     }
 
     #[tool(name = "get_plan", description = "Get a plan by ID")]
@@ -576,7 +698,9 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::ListPlansInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_list_plans(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_list_plans(input, &self.context.planner).await,
+        )
     }
 
     #[tool(name = "start_plan", description = "Start executing a plan")]
@@ -584,7 +708,9 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::StartPlanInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_start_plan(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_start_plan(input, &self.context.planner).await,
+        )
     }
 
     #[tool(name = "complete_step", description = "Mark a step as completed")]
@@ -592,7 +718,9 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::CompleteStepInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_complete_step(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_complete_step(input, &self.context.planner).await,
+        )
     }
 
     #[tool(name = "fail_step", description = "Mark a step as failed")]
@@ -600,7 +728,9 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::FailStepInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_fail_step(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_fail_step(input, &self.context.planner).await,
+        )
     }
 
     #[tool(name = "cancel_plan", description = "Cancel a plan")]
@@ -608,7 +738,125 @@ impl McpServerHandler {
         &self,
         Parameters(input): Parameters<tools::planner::CancelPlanInput>,
     ) -> ContentBlock {
-        tool_output_to_content(tools::planner::execute_cancel_plan(input, &self.context.planner).await)
+        tool_output_to_content(
+            tools::planner::execute_cancel_plan(input, &self.context.planner).await,
+        )
+    }
+
+    // ========================================================================
+    // WORKFLOW ENGINE TOOLS
+    // ========================================================================
+
+    #[tool(
+        name = "create_workflow",
+        description = "Create a new workflow with a name and optional description"
+    )]
+    async fn create_workflow(
+        &self,
+        Parameters(input): Parameters<tools::workflow::CreateWorkflowInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_create_workflow(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(
+        name = "add_workflow_step",
+        description = "Add a step to an existing workflow. Steps are executed in order."
+    )]
+    async fn add_workflow_step(
+        &self,
+        Parameters(input): Parameters<tools::workflow::AddWorkflowStepInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_add_workflow_step(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(
+        name = "get_workflow_status",
+        description = "Get the current status and details of a workflow"
+    )]
+    async fn get_workflow_status(
+        &self,
+        Parameters(input): Parameters<tools::workflow::GetWorkflowStatusInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_get_workflow_status(input, &self.context.workflow_engine)
+                .await,
+        )
+    }
+
+    #[tool(
+        name = "list_workflows",
+        description = "List all workflows, optionally filtered by status"
+    )]
+    async fn list_workflows(
+        &self,
+        Parameters(input): Parameters<tools::workflow::ListWorkflowsInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_list_workflows(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(
+        name = "start_workflow",
+        description = "Start executing a workflow. The engine will run all steps sequentially."
+    )]
+    async fn start_workflow(
+        &self,
+        Parameters(input): Parameters<tools::workflow::StartWorkflowInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_start_workflow(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(name = "pause_workflow", description = "Pause a running workflow")]
+    async fn pause_workflow(
+        &self,
+        Parameters(input): Parameters<tools::workflow::PauseWorkflowInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_pause_workflow(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(name = "resume_workflow", description = "Resume a paused workflow")]
+    async fn resume_workflow(
+        &self,
+        Parameters(input): Parameters<tools::workflow::ResumeWorkflowInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_resume_workflow(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(
+        name = "cancel_workflow",
+        description = "Cancel a workflow, removing it from execution."
+    )]
+    async fn cancel_workflow(
+        &self,
+        Parameters(input): Parameters<tools::workflow::CancelWorkflowInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_cancel_workflow(input, &self.context.workflow_engine).await,
+        )
+    }
+
+    #[tool(
+        name = "delete_workflow",
+        description = "Delete a workflow completely."
+    )]
+    async fn delete_workflow(
+        &self,
+        Parameters(input): Parameters<tools::workflow::DeleteWorkflowInput>,
+    ) -> ContentBlock {
+        tool_output_to_content(
+            tools::workflow::execute_delete_workflow(input, &self.context.workflow_engine).await,
+        )
     }
 }
 

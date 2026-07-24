@@ -1,14 +1,15 @@
 // src/memory/retrieval.rs
 //! Memory Retrieval - Per Architecture §6.3
+#![allow(dead_code)]
 //!
 //! Provides retrieval capabilities for memory items across both
 //! working and permanent memory layers.
 
 use std::sync::Arc;
 
+use super::permanent::PermanentMemory;
 use super::types::{MemoryItem, MemoryLayer, MemoryType};
 use super::working::WorkingMemory;
-use super::permanent::PermanentMemory;
 
 /// Memory retrieval result with source information
 #[derive(Debug, Clone)]
@@ -83,49 +84,47 @@ impl MemoryRetrieval {
     /// Unified retrieval across all memory layers
     pub async fn retrieve(&self, query: &str) -> Vec<RetrievalResult> {
         let mut results = Vec::new();
-        
+
         // Search working memory
         let working_results = self.from_working(query).await;
         results.extend(working_results);
-        
+
         // Search permanent memory
         let permanent_results = self.from_permanent(query).await;
         results.extend(permanent_results);
-        
+
         // Sort by relevance
         results.sort_by(|a, b| {
             b.relevance_score
                 .partial_cmp(&a.relevance_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        
+
         results
     }
 
     /// Retrieve with full query parameters
     pub async fn retrieve_with_query(&self, query: &RetrievalQuery) -> Vec<RetrievalResult> {
         let mut results = self.retrieve(&query.query).await;
-        
+
         // Filter by type
         if !query.memory_types.is_empty() {
             results.retain(|r| query.memory_types.contains(&r.item.memory_type));
         }
-        
+
         // Filter by confidence
         if let Some(min_conf) = query.min_confidence {
             results.retain(|r| r.item.confidence >= min_conf);
         }
-        
+
         // Filter by tags
         if !query.tags.is_empty() {
-            results.retain(|r| {
-                r.item.tags.iter().any(|t| query.tags.contains(t))
-            });
+            results.retain(|r| r.item.tags.iter().any(|t| query.tags.contains(t)));
         }
-        
+
         // Limit results
         results.truncate(query.limit);
-        
+
         results
     }
 
@@ -146,37 +145,37 @@ impl MemoryRetrieval {
     fn calculate_relevance(&self, item: &MemoryItem, query: &str) -> f32 {
         let query_lower = query.to_lowercase();
         let content_lower = item.content.to_lowercase();
-        
+
         // Base score from content match
         let content_match = if content_lower.contains(&query_lower) {
             1.0
         } else {
             0.0
         };
-        
+
         // Confidence contribution
         let confidence_score = item.confidence;
-        
+
         // Importance contribution
         let importance_score = item.importance;
-        
+
         // Access recency (more recent = higher score)
         let now = chrono::Utc::now();
         let age_hours = (now - item.accessed_at).num_hours() as f32;
         let recency_score = (1.0 / (1.0 + age_hours / 24.0)).min(1.0);
-        
+
         // Weighted combination
-        (content_match * 0.4) + 
-        (confidence_score * 0.2) + 
-        (importance_score * 0.2) + 
-        (recency_score * 0.2)
+        (content_match * 0.4)
+            + (confidence_score * 0.2)
+            + (importance_score * 0.2)
+            + (recency_score * 0.2)
     }
 
     /// Get statistics from both memory layers
     pub async fn stats(&self) -> MemoryRetrievalStats {
         let working_stats = self.working.stats().await;
         let permanent_stats = self.permanent.stats().await;
-        
+
         MemoryRetrievalStats {
             working_items: working_stats.total_items,
             permanent_items: permanent_stats.total_items,
@@ -206,7 +205,7 @@ mod tests {
         let working = Arc::new(WorkingMemory::new(100));
         let permanent = Arc::new(PermanentMemory::new(100));
         let retrieval = MemoryRetrieval::new(working.clone(), permanent.clone());
-        
+
         let item = MemoryItem::new(
             MemoryLayer::Working,
             MemoryType::Context,
@@ -214,7 +213,7 @@ mod tests {
             "test".to_string(),
         );
         working.store(item).await;
-        
+
         let results = retrieval.from_working("Python").await;
         assert_eq!(results.len(), 1);
         assert!(results[0].item.content.contains("Python"));
@@ -225,7 +224,7 @@ mod tests {
         let working = Arc::new(WorkingMemory::new(100));
         let permanent = Arc::new(PermanentMemory::new(100));
         let retrieval = MemoryRetrieval::new(working.clone(), permanent.clone());
-        
+
         let mut item = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -234,7 +233,7 @@ mod tests {
         );
         item.add_tag("rust");
         permanent.store(item).await;
-        
+
         let results = retrieval.from_permanent("Rust").await;
         assert_eq!(results.len(), 1);
         assert!(results[0].item.content.contains("Rust"));
@@ -245,7 +244,7 @@ mod tests {
         let working = Arc::new(WorkingMemory::new(100));
         let permanent = Arc::new(PermanentMemory::new(100));
         let retrieval = MemoryRetrieval::new(working.clone(), permanent.clone());
-        
+
         let item1 = MemoryItem::new(
             MemoryLayer::Working,
             MemoryType::Context,
@@ -253,7 +252,7 @@ mod tests {
             "test".to_string(),
         );
         working.store(item1).await;
-        
+
         let item2 = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -261,7 +260,7 @@ mod tests {
             "test".to_string(),
         );
         permanent.store(item2).await;
-        
+
         let results = retrieval.retrieve("context").await;
         assert_eq!(results.len(), 2); // Both contain "context"
     }
@@ -271,7 +270,7 @@ mod tests {
         let working = Arc::new(WorkingMemory::new(100));
         let permanent = Arc::new(PermanentMemory::new(100));
         let retrieval = MemoryRetrieval::new(working.clone(), permanent.clone());
-        
+
         let mut low_conf = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -280,7 +279,7 @@ mod tests {
         );
         low_conf.update_confidence(0.2);
         permanent.store(low_conf).await;
-        
+
         let mut high_conf = MemoryItem::new(
             MemoryLayer::Permanent,
             MemoryType::Knowledge,
@@ -289,7 +288,7 @@ mod tests {
         );
         high_conf.update_confidence(0.9);
         permanent.store(high_conf).await;
-        
+
         let query = RetrievalQuery {
             query: "item".to_string(),
             memory_types: Vec::new(),
@@ -297,7 +296,7 @@ mod tests {
             tags: Vec::new(),
             limit: 10,
         };
-        
+
         let results = retrieval.retrieve_with_query(&query).await;
         assert_eq!(results.len(), 1);
         assert!(results[0].item.content.contains("High"));

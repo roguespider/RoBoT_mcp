@@ -3,8 +3,8 @@
 use anyhow::Result;
 
 use crate::experience::{
-    observer::ExperienceObserver,
     events::ExperienceEvent,
+    observer::ExperienceObserver,
     types::{Experience, ExperienceScore, OutcomeKind},
 };
 
@@ -16,6 +16,7 @@ use crate::experience::{
 pub struct ExperienceScorer;
 
 /// Scores individual encounters.
+#[allow(dead_code)]
 pub struct EncounterScore {
     pub success: f32,
     pub quality: f32,

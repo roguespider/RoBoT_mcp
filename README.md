@@ -459,17 +459,23 @@ src/
 ├── planner/                    ✅
 │   ├── planner.rs              ✅ Core planning engine for task decomposition
 │   └── policy.rs               ✅ Policy engine for decision-making rules
+├── bridge/                     ✅
+│   ├── mcp.rs                  ✅ MCP context (includes WorkflowEngine)
+│   ├── app.rs                  ✅ Application initialization (instantiates WorkflowEngine)
+│   ├── rmcp.rs                 ✅ RMCP server (exposes workflow tools via MCP)
 ├── skills/                     ✅
 │   └── registry.rs             ✅ Skill registry with discovery and execution
 ├── workflows/                  ✅
-│   └── engine.rs               ✅ Workflow execution engine
+│   ├── mod.rs                  ✅ Workflow module root
+│   └── engine.rs               ✅ Workflow execution engine (connected to MCP server)
 ├── tools/                      ✅
 │   ├── mod.rs                  ✅ Tools module root
 │   ├── memory.rs               ✅ Memory tools (store, search, get, list)
 │   ├── experience.rs           ✅ Experience tools
 │   ├── reflection.rs           ✅ Reflection tools
 │   ├── search.rs               ✅ Search tools
-│   └── ingestor.rs             ✅ File ingestion tools (import, delete with confirmation)
+│   ├── ingestor.rs             ✅ File ingestion tools (import, delete with confirmation)
+│   ├── workflow.rs             ✅ Workflow tools (create, add_step, start, pause, resume, cancel, delete)
 ├── learning/                   ✅
 │   ├── working_memory.rs       ✅ Short-term memory management
 │   ├── hypothesis.rs           ✅ Hypothesis tracking and evaluation
@@ -493,187 +499,1437 @@ src/
 Upgrades to Add
 ---
 
-1. Context System
+RoBoT Cognitive Architecture
+                 User Question
+                       │
+                       ▼
+              Task Classification
+                       │
+                       ▼
+                Context Engine
+                       │
+      ┌────────────────┼─────────────────┐
+      │                │                 │
+      ▼                ▼                 ▼
+Working Context   Active Task      Retrieval Planner
+                                       │
+                                       ▼
+                               Memory Retriever
+                                       │
+                  ┌────────────────────┼──────────────────┐
+                  ▼                    ▼                  ▼
+           Strategic Memory     Episodic Memory     Knowledge Graph
+                  │                    │                  │
+                  └──────────────┬─────┴──────────────────┘
+                                 ▼
+                         Context Compressor
+                                 │
+                           Token Budget
+                                 │
+                          Prompt Assembler
+                                 │
+                                 ▼
+                                LLM
+                                 │
+                                 ▼
+                           Action / Answer
+                                 │
+                                 ▼
+                      Experience Extraction
+                                 │
+                                 ▼
+                         Experience Engine
+                                 │
+                                 ▼
+                         Memory Engine
+                                 │
+                                 ▼
+                       Strategic Learning
+The Four Independent Systems
+
+The architecture becomes much easier to reason about if every subsystem has exactly one responsibility.
+
+1. Context Engine
+
+Purpose:
+
+Build the smallest possible prompt that still allows the model to solve the current task.
+
+The Context Engine never stores permanent information.
+
+It only decides:
+
+what is relevant
+what should be loaded
+what should be discarded
+ContextEngine
+│
+├── ContextManager
+├── WorkingContext
+├── ActiveTaskContext
+├── RetrievalPlanner
+├── MemoryRetriever
+├── ContextCompressor
+├── PromptAssembler
+├── TokenBudget
+├── SlidingWindow
+├── TopicTracker
+└── RetrievalCache
+Working Context
+
+Temporary.
+
+Contains:
+
+current user prompt
+current tool outputs
+current reasoning state
+
+Destroyed after every interaction.
+
+Active Task Context
+
+Lives longer.
+
+Examples:
+
+Current coding project
+
+Current Rust file
+
+Current bug
+
+Current design discussion
+
+Current constraints
+
+This survives while the task remains active.
+
+Retrieval Planner
+
+The brain of Context.
+
+Instead of asking Memory for everything, it asks:
+
+What do I actually need?
+
+Example:
+
+Question:
+
+Implement SQLite transactions
+
+Planner:
+
+Need:
+
+Rust knowledge
+
+Database architecture
+
+Current repository decisions
+
+Ignore:
+
+Weather
+
+Recipes
+
+Old conversations
+Memory Retriever
+
+Planner decides.
+
+Retriever fetches.
+
+Never the opposite.
+
+Returns:
+
+IDs
+compressed summaries
+optional expansion
+Context Compressor
+
+Converts memory into prompt-sized knowledge.
+
+Example:
+
+Raw memory
+
+4000 tokens
+
+↓
+
+Summary
+
+120 tokens
+Prompt Assembler
+
+Final prompt construction.
+
+System Prompt
+
++
+
+Current Question
+
++
+
+Current Code
+
++
+
+Retrieved Memory
+
++
+
+Tools
+
+↓
+
+LLM
+
+Nothing else touches the prompt.
+
+Token Budget
+
+A hard budget.
+
+Example
+
+2048 Tokens
+
+220 System
+
+180 User
+
+850 Code
+
+300 Memory
+
+250 Tool Results
+
+248 Reserve
+
+If overflow happens
+
+Drop lowest priority.
+
+Never exceed budget.
+
+2. Memory Engine
+
+Purpose:
+
+Store information.
+
+Nothing else.
+
+MemoryEngine
+│
+├── Episodic Memory
+├── Semantic Memory
+├── Graph Memory
+├── User Memory
+├── Retrieval Index
+├── Embeddings
+├── Aging
+├── Compression
+└── Archive
+
+Memory should never build prompts.
+
+That belongs to Context.
+
+3. Experience Engine
+
+Purpose:
+
+Learn from execution.
+
+ExperienceEngine
+│
+├── Event Capture
+├── Success Detection
+├── Failure Detection
+├── Reflection
+├── Skill Extraction
+├── Confidence Updates
+├── Policy Generation
+└── Experience Database
+
+Every interaction produces an experience.
+
+Not every experience becomes memory.
+
+4. Learning Engine
+
+Purpose:
+
+Convert experience into reusable intelligence.
+
+LearningEngine
+│
+├── Pattern Detection
+├── Rule Extraction
+├── Skill Builder
+├── Conflict Resolver
+├── Confidence Manager
+├── Policy Promotion
+├── Memory Consolidation
+└── Knowledge Evolution
+
+This is where intelligence grows.
+
+Four Memory Levels
+
+Instead of one giant chat history.
+
+Level 0
+──────────────────────
+Live Context
+
+Current prompt
+
+Current response
+
+Destroyed every turn
+
+──────────────────────
+
+Level 1
+Working Summary
+
+~200 tokens
+
+Current task
+
+Temporary
+
+──────────────────────
+
+Level 2
+Conversation Checkpoints
+
+300-500 token summaries
+
+Frozen
+
+Searchable
+
+──────────────────────
+
+Level 3
+Permanent Memory
+
+Unlimited
+
+Raw conversations
+
+Experiences
+
+Documents
+
+Knowledge Graph
+
+Embeddings
+
+Policies
+
+Skills
+
+Only Level 0 and Level 1 are loaded by default.
+
+Everything else is retrieved.
+
+Context Lifecycle
+Conversation
+
+↓
+
+Sliding Window
+
+↓
+
+Continuous Compaction
+
+↓
+
+Checkpoint Creation
+
+↓
+
+Memory Aging
+
+↓
+
+Archive
+
+This keeps the prompt small forever.
+
+Continuous Compaction
+
+Instead of one huge summary.
+
+Messages 1-20
+      │
+      ▼
+Checkpoint #1
+
+Messages 21-40
+      │
+      ▼
+Checkpoint #2
+
+Messages 41-60
+      │
+      ▼
+Checkpoint #3
+
+Messages 61-80
+      │
+      ▼
+Checkpoint #4
+
+Current Messages
+
+Searching becomes:
+
+Question
+
+↓
+
+Search checkpoints
+
+↓
+
+Checkpoint #12 matches
+
+↓
+
+Expand only that checkpoint
+
+↓
+
+Maybe load two raw conversations
+
+↓
+
+Answer
+
+No need to reload months of history.
+
+Memory Aging
+
+Every memory slowly changes importance.
+
+New Memory
+
+↓
+
+Frequently Used
+
+↑ confidence
+
+↓
+
+Rarely Used
+
+↓
+
+Compress
+
+↓
+
+Archive
+
+↓
+
+Delete (optional)
+
+Importance can be calculated from:
+
+access frequency
+success rate
+recency
+confidence
+relationship strength
+
+Old memories never disappear automatically.
+
+They simply become harder to retrieve unless reinforced.
+
+Strategic Learning
+
+The biggest improvement over traditional RAG.
+
+Instead of remembering experiences forever:
+
+Experience
+
+↓
+
+Pattern Detection
+
+↓
+
+Reflection
+
+↓
+
+Skill Extraction
+
+↓
+
+Policy Generation
+
+↓
+
+Strategic Memory
+
+Example
+
+Experience Log
+
+Battery 18%
+
+Docked
+
+Succeeded
+
+Battery 17%
+
+Docked
+
+Succeeded
+
+Battery 15%
+
+Docked
+
+Succeeded
+
+↓
+
+Policy
+
+IF Battery < 20%
+
+THEN Dock Immediately
+
+Confidence 97%
+
+Next time
+
+No vector search.
+
+The rule already exists.
+
+End-to-End Workflow
+Question
+    │
+    ▼
+Task Detection
+    │
+    ▼
+Context Planning
+    │
+    ▼
+Memory Retrieval
+    │
+    ▼
+Context Compression
+    │
+    ▼
+Prompt Assembly
+    │
+    ▼
+LLM
+    │
+    ▼
+Action / Response
+    │
+    ▼
+Experience Extraction
+    │
+    ▼
+Memory Update
+    │
+    ▼
+Checkpoint Evaluation
+    │
+    ▼
+Pattern Detection
+    │
+    ▼
+Policy / Skill Promotion
+Core Design Principles
+Context is ephemeral. It exists only to solve the current task.
+Memory is persistent. It stores knowledge but never builds prompts.
+Experience is observational. Every interaction becomes structured experience.
+Learning is transformative. Repeated experiences become reusable skills, policies, and causal models.
+Retrieval is intentional. The planner decides what to load before any search occurs.
+Compression happens continuously. Conversations evolve into checkpoints, checkpoints into knowledge, and knowledge into abstractions.
+Token budgets are enforced by design. The system never relies on oversized prompts.
+The architecture improves with use. The agent becomes more capable by promoting successful patterns into strategic memory rather than accumulating raw history.
+
+engineering specification
+
+RoBoT Cognitive Architecture Blueprint
+Long-Term Autonomous AI Agent Design
+Purpose
+
+This document defines the core cognitive architecture for RoBoT.
+
+The objective is to build an AI agent capable of operating indefinitely without suffering from context explosion, memory bloat, or repetitive reasoning.
+
+The architecture is built around one core principle:
+
+Context is temporary. Knowledge is permanent. Experience creates learning.
+
+Every subsystem has one responsibility and communicates through well-defined interfaces.
+
+Core Architecture
+                    User
+                     │
+                     ▼
+          Conversation Engine
+                     │
+                     ▼
+              Context Engine
+                     │
+                     ▼
+               Memory Engine
+                     │
+                     ▼
+            Experience Engine
+                     │
+                     ▼
+             Learning Engine
+                     │
+                     ▼
+             Strategic Memory
+Design Principles
+Principle 1
+
+Conversation is not Memory.
+
+Conversation stores everything.
+
+Memory stores only what is worth remembering.
+
+Principle 2
+
+Context is disposable.
+
+Every prompt begins nearly empty.
+
+Only relevant information is loaded.
+
+Principle 3
+
+Experience is observation.
+
+Every execution creates an experience.
+
+Not every experience becomes knowledge.
+
+Principle 4
+
+Learning is continuous.
+
+Repeated successful experiences become reusable skills and policies.
+
+Principle 5
+
+Knowledge becomes more abstract over time.
+
+Conversation
+
+↓
+
+Experience
+
+↓
+
+Pattern
+
+↓
+
+Skill
+
+↓
+
+Policy
+
+↓
+
+Strategic Knowledge
+System Architecture
+RoBoT
+│
+├── Conversation Engine
+├── Context Engine
+├── Memory Engine
+├── Experience Engine
+├── Learning Engine
+├── Planning Engine
+├── Execution Engine
+└── Tool Engine
+1. Conversation Engine
+Responsibility
+
+Capture everything.
+
+Nothing is lost.
+
+Nothing is filtered.
+
+This is an append-only event stream.
+
+Stores
+Conversation Database
+
+Messages
+
+Sessions
+
+Attachments
+
+Tool Calls
+
+System Events
+
+Errors
+
+Streaming Tokens
+
+Metadata
+Reads
+
+Mostly sequential.
+
+Last messages
+
+Current session
+
+Conversation replay
+Writes
+
+Every interaction.
+
+Never Does
+
+Memory retrieval
+
+Embeddings
+
+Policy extraction
+
+Reasoning
+
+Learning
+
+2. Context Engine
+Responsibility
+
+Construct the smallest possible prompt.
+
+Nothing more.
 
 Context Engine
 │
 ├── ContextManager
-│
 ├── WorkingContext
-│
 ├── ActiveTaskContext
-│
 ├── RetrievalPlanner
-│
 ├── MemoryRetriever
-│
 ├── ContextCompressor
-│
 ├── PromptAssembler
-│
 ├── TokenBudget
-│
-├── SlidingWindow
-│
 ├── TopicTracker
-│
-└── RetrievalCache
+├── RetrievalCache
+└── SlidingWindow
+Working Context
 
-WorkingMemory is really just WorkingContext.
-Memory belongs to the Memory Engine.
-Context belongs to the Context Engine.
-That separation will keep the architecture cleaner.
+Temporary.
 
-Question
-   ↓
-Context Manager
-   ↓
-Relevant Context
-   ↓
-LLM
+Destroyed every turn.
 
-Context Management should bea first-class subsystem alongside Memory and Experience. 
-Each turn starts mostly fresh
-Memory search returns references
-Only top relevant compressed snippets are loaded
-The model answers
-The interaction is saved
-Working context is discarded
-Only ActiveTaskContext persists during a coding session
+Contains
 
-It would own:
-WorkingContext
-Current prompt only
-ActiveTaskContext
-Current coding task
-Current files
+Current prompt
+
+Recent replies
+
+Tool outputs
+
+Temporary reasoning
+Active Task Context
+
+Persists during ongoing work.
+
+Examples
+
+Current coding project
+
+Current file
+
+Current objective
+
 Current decisions
-Current constraints
-RetrievalPlanner
 
-Question
-↓
-RetrievalPlanner
-↓
-Which memories are worth loading?
-↓
-MemoryRetriever
-↓
-Fetch them
-↓
-ContextCompressor
-↓
-PromptAssembler
+Constraints
 
-The planner decides what to retrieve.
-The retriever retrieves it.
+Open bugs
 
-Returns IDs first
-Loads compressed summaries
-Enforces token budget
-MemoryCompressor
-Creates 50 to 150 token summaries
-Creates retrieval snippets
-PromptAssembler
-Builds final prompt under a hard budget of 2048 tokens
+Destroyed only when the task ends.
 
-TokenBudget is its own component
+Retrieval Planner
 
-TokenBudget
-2048 max
-System prompt
- 220
-User prompt
- 180
+Determines what information is needed before any search occurs.
+
+Example
+
+User
+
+Continue SQLite work
+
+↓
+
+Need
+
+Current project
+
+Architecture decisions
+
+Database module
+
+↓
+
+Ignore
+
+Recipes
+
+Weather
+
+Old conversations
+Memory Retriever
+
+Receives retrieval requests.
+
+Returns
+
+Memory IDs
+
+Summaries
+
+Optional expansions
+Context Compressor
+
+Converts retrieved content into compact prompt fragments.
+
+Example
+
+3500 tokens
+
+↓
+
+120-token summary
+Prompt Assembler
+
+Combines
+
+System Prompt
+
+User Prompt
+
+Retrieved Context
+
 Code
- 850
-Memory
- 300
-Tools
- 250
-Reserve
- 248
 
-Drops least important context first
-Sliding Window Pruning - Sliding window pruning acts like a First-In, First-Out (FIFO) queue for your chat logs
-Continuous Compaction - a of collapses the oldest block of messages into a single, high-density rolling summary 
-paragraph. saving it to memory. This summary is then injected back into the prompt buffer as a "Memory Context." for next question
+Tool Results
+
+Produces one final prompt.
+
+Token Budget
+
+Hard budget.
+
+Example
+
+2048 Tokens
+
+220 System
+
+180 User
+
+850 Code
+
+300 Memory
+
+250 Tools
+
+248 Reserve
+
+If overflow occurs
+
+Drop lowest priority context.
+
+Never exceed the budget.
+
+3. Memory Engine
+Responsibility
+
+Store knowledge.
+
+Nothing else.
+
+Memory Engine
+│
+├── Episodic Memory
+├── Semantic Memory
+├── User Memory
+├── Knowledge Graph
+├── Embeddings
+├── Retrieval Index
+├── Aging
+├── Compression
+└── Archive
+Memory Types
+Episodic
+
+Individual events.
 
 Conversation
-│
-├── Messages 1-20
-│      ↓
-│  Summary #1 (frozen)
-│
-├── Messages 21-40
-│      ↓
-│  Summary #2 (frozen)
-│
-├── Messages 41-60
-│      ↓
-│  Summary #3 (frozen)
-│
-└── Active Messages (last 10-20)
 
-Then create one small working summary that references those checkpoints.
-Question
-↓
-Search summaries
-↓
-Find Summary #12
-↓
-Expand only that summary
-↓
-Maybe load 2 original conversations
-↓
-Answer
+Task completion
 
-four memory levels
+Failures
+
+Observations
+Semantic
+
+Facts.
+
+SQLite supports transactions.
+
+Rust ownership rules.
+
+API endpoints.
+User Memory
+
+Long-term user preferences.
+
+Examples
+
+Preferred coding style
+
+Project conventions
+
+Tool preferences
+Strategic Memory
+
+Policies.
+
+Skills.
+
+Rules.
+
+Causal models.
+
+Never Stores
+
+Raw conversations.
+
+Streaming messages.
+
+Temporary context.
+
+4. Experience Engine
+Responsibility
+
+Convert execution into structured experiences.
+
+Experience Engine
+│
+├── Event Capture
+├── Reflection
+├── Outcome Analysis
+├── Success Detection
+├── Failure Detection
+├── Confidence Updates
+├── Skill Candidates
+└── Experience Database
+
+Example
+
+Goal
+
+Compile Rust
+
+↓
+
+Compilation failed
+
+↓
+
+Fixed lifetime
+
+↓
+
+Compiled successfully
+
+↓
+
+Experience saved
+5. Learning Engine
+Responsibility
+
+Transform experience into reusable intelligence.
+
+Learning Engine
+│
+├── Pattern Detection
+├── Reflection
+├── Rule Extraction
+├── Skill Builder
+├── Policy Generator
+├── Conflict Resolver
+├── Confidence Manager
+└── Strategic Promotion
+
+Example
+
+50 successful experiences
+
+↓
+
+Repeated sequence detected
+
+↓
+
+Extract reusable policy
+
+↓
+
+Store in Strategic Memory
+Strategic Memory
+
+Stores
+
+Skills
+
+Policies
+
+Rules
+
+Decision trees
+
+Failure modes
+
+Causal relationships
+
+Examples
+
+If battery <20%
+
+Dock immediately
+Use transactions for multi-table updates.
+Acquire locks before writing shared memory.
+Memory Hierarchy
 Level 0
-──────────────
-Live Context
-(Current prompt)
-↓
-Level 1
-──────────────
-Working Summary
-(~200 tokens)
-↓
-Level 2
-──────────────
-Conversation Checkpoints
-(~300-500 tokens each)
-↓
-Level 3
-──────────────
-Raw Memory Database
-(Unlimited)
-Only Level 0 and Level 1 should be in every prompt.
-Levels 2 and 3 are retrieved on demand.
 
-add "memory aging"
+Live Context
+
+Current prompt
+
+Destroyed every turn
+
+──────────────────────────
+
+Level 1
+
+Working Summary
+
+Current task
+
+~200 tokens
+
+──────────────────────────
+
+Level 2
+
+Conversation Checkpoints
+
+300-500 tokens
+
+──────────────────────────
+
+Level 3
+
+Long-Term Memory
+
+Unlimited
+
+──────────────────────────
+
+Level 4
+
+Strategic Memory
+
+Skills
+
+Policies
+
+Rules
+
+Only Levels 0 and 1 are always loaded.
+
+Everything else is retrieved on demand.
 
 Context Lifecycle
+Conversation
+
+↓
 
 Sliding Window
+
 ↓
+
 Compaction
+
 ↓
+
 Checkpoint Creation
+
 ↓
+
 Memory Aging
+
 ↓
+
 Archive
+Continuous Compaction
+Messages 1-20
 
-final workflow looks like this:
+↓
 
+Checkpoint #1
+
+Messages 21-40
+
+↓
+
+Checkpoint #2
+
+Messages 41-60
+
+↓
+
+Checkpoint #3
+
+Current Messages
+
+Searching becomes
+
+Search checkpoints
+
+↓
+
+Load matching checkpoint
+
+↓
+
+Expand only relevant conversations
+
+↓
+
+Answer
+Memory Aging
+
+Every memory has
+
+Confidence
+
+Importance
+
+Access Count
+
+Last Used
+
+Creation Date
+
+Relationship Strength
+
+Older memories gradually lose priority.
+
+Important memories become stronger through repeated successful use.
+
+Data Flow
+User
+
+↓
+
+Conversation Engine
+
+↓
+
+Conversation Database
+
+↓
+
+Experience Extraction
+
+↓
+
+Experience Engine
+
+↓
+
+Experience Database
+
+↓
+
+Learning Engine
+
+↓
+
+Strategic Memory
+
+↓
+
+Memory Engine
+
+The Context Engine can query Memory, but Memory never pushes information into Context.
+
+Query Flow
 Question
+
+↓
+
+Task Detection
+
+↓
+
+Context Planning
+
+↓
+
+Need Memory?
+
+├── No
+│      ↓
+│     LLM
+│
+└── Yes
+       ↓
+Retrieval Planner
+
+↓
+
+Memory Retrieval
+
+↓
+
+Compression
+
+↓
+
+Prompt Assembly
+
+↓
+
+LLM
+
+↓
+
+Response
+
+↓
+
+Experience Extraction
+
+↓
+
+Checkpoint Evaluation
+
+↓
+
+Memory Update
+
+↓
+
+Learning
+Suggested Implementation Roadmap
+Phase 1: Foundation
+Conversation Engine with append-only storage.
+Context Engine skeleton with token budgeting and prompt assembly.
+Basic Memory Engine with episodic and semantic stores.
+Simple retrieval pipeline (planner → retriever → assembler).
+Phase 2: Retrieval and Context
+Retrieval Planner.
+Context Compressor.
+Sliding window and checkpoint creation.
+Working and Active Task contexts.
+Memory aging and archival.
+Phase 3: Experience
+Event capture.
+Structured experience records.
+Success/failure detection.
+Reflection pipeline.
+Confidence tracking.
+Phase 4: Learning
+Pattern detection across experiences.
+Rule and skill extraction.
+Policy generation.
+Conflict resolution.
+Promotion into Strategic Memory.
+Phase 5: Advanced Reasoning
+Knowledge Graph integration.
+Causal reasoning.
+Adaptive retrieval planning.
+Multi-step planning using strategic skills.
+Autonomous maintenance tasks (compaction, aging, checkpointing, learning).
+Architectural Rules for AI Contributors
+Every subsystem has exactly one responsibility.
+Never mix conversation storage with long-term memory.
+Context is rebuilt each turn and discarded when complete.
+Memory stores only durable knowledge, never raw chat logs.
+Experience records execution outcomes without making decisions.
+Learning alone promotes repeated experiences into strategic knowledge.
+Retrieval is always initiated by the Context Engine through the Retrieval Planner.
+Enforce token budgets as a hard architectural constraint.
+Prefer summarization and abstraction over retaining verbose history.
+Optimize for continuous operation, incremental learning, and indefinite scalability.
+
+-----------------
+architecture.md update
+
+Purpose
+Responsibilities
+What it owns
+What it must never do
+Public interfaces
+Data structures
+Data flow
+Sequence diagrams
+Rust module layout
+Implementation order
+
+So instead of saying:
+
+Memory Engine stores memories.
+
+It would say something like:
+
+Memory Engine
+
+Purpose
+-------
+Persist durable knowledge independently of the active conversation.
+
+Responsibilities
+----------------
+• Store semantic memory
+• Store episodic memory
+• Store strategic memory
+• Maintain embeddings
+• Maintain graph relationships
+• Maintain confidence scores
+
+Must Never
+----------
+• Build prompts
+• Read conversations directly
+• Decide retrieval
+• Perform planning
+• Execute tools
+
+Interfaces
+----------
+store_memory()
+retrieve_memory()
+update_confidence()
+archive_memory()
+promote_to_strategic()
+merge_duplicate()
+age_memory()
+
+Every subsystem would have that level of detail.
+Then every subsystem would have diagrams.
+
+Conversation
+↓
+Conversation Engine
+↓
+Conversation Database
+↓
+Experience Extractor
+↓
+Experience Database
+↓
+Learning Engine
+↓
+Memory Engine
+↓
+Context Engine
+↓
+LLM
+Then we'd define every database table.
+conversation_messages
+conversation_sessions
+experiences
+experience_events
+memory_cards
+knowledge_graph
+embeddings
+strategic_skills
+policies
+confidence_history
+retrieval_cache
+task_context
+
+Then every Rust module.
+
+src/
+
+conversation/
+
+context/
+
+memory/
+
+experience/
+
+learning/
+
+planning/
+
+execution/
+
+tools/
+
+graph/
+
+database/
+
+api/
+
+Then every workflow.
+
+User Question
+↓
+Conversation Engine
 ↓
 Task Detection
 ↓
 Context Planning
 ↓
 Memory Retrieval
+↓
+Compression
 ↓
 Prompt Assembly
 ↓
@@ -684,8 +1940,24 @@ Experience Extraction
 Memory Update
 ↓
 Checkpoint Evaluation
+↓
+Strategic Learning
 
----
+And finally an Operating Agreement for AI contributors that says things like:
+
+Never bypass the Context Engine.
+Never write directly into Strategic Memory.
+All memory promotion must pass through the Learning Engine.
+The Conversation Engine is append-only.
+Context is rebuilt every turn.
+Retrieval is always initiated by the Retrieval Planner.
+Every subsystem has a single responsibility.
+Favor composition over coupling.
+Prefer asynchronous pipelines for expensive background work.
+Keep LLM context minimal and deterministic.
+
+
+--------------------------------------------
 3. Confidence Graph
 
 One thing we've discussed but haven't fully designed:
@@ -1237,6 +2509,129 @@ cargo build --release
 ```
 
 > **Note:** The project uses the system SQLite3 library. The database (`robot_brain.db`) is created automatically on first run.
+
+---
+
+## Workflow Engine Tools
+
+The workflow engine provides structured, executable workflows with step-by-step orchestration, variable substitution, and pause/resume capabilities. Unlike the static `get_workflow` tool (which returns guidance JSON), these tools create and run actual workflows.
+
+### MCP Tools
+
+#### `create_workflow`
+Create a new workflow with a name and optional description.
+
+```json
+{
+  "name": "My Workflow",
+  "description": "A custom workflow for X task"
+}
+```
+
+#### `add_workflow_step`
+Add a step to an existing workflow. Steps execute in order.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>",
+  "name": "Step 1",
+  "action": "store_memory",
+  "parameters": "{\"content\": \"some data\", \"memory_type\": \"note\"}"
+}
+```
+
+**Supported actions:** `store_memory`, `search_memory`, `record_experience`, `create_reflection`, `ingest_files`
+
+#### `get_workflow_status`
+Get the current status and details of a workflow.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>"
+}
+```
+
+#### `list_workflows`
+List all workflows, optionally filtered by status.
+
+```json
+{
+  "status": "running"
+}
+```
+
+**Status values:** `draft`, `ready`, `running`, `paused`, `completed`, `failed`, `cancelled`
+
+#### `start_workflow`
+Start executing a workflow. Steps run sequentially with automatic memory reads before each action.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>"
+}
+```
+
+#### `pause_workflow`
+Pause a running workflow.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>"
+}
+```
+
+#### `resume_workflow`
+Resume a paused workflow.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>"
+}
+```
+
+#### `cancel_workflow`
+Cancel a workflow, removing it from execution.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>"
+}
+```
+
+#### `delete_workflow`
+Delete a workflow completely.
+
+```json
+{
+  "workflow_id": "<workflow-uuid>"
+}
+```
+
+### How It Works
+
+```
+1. create_workflow → Get workflow ID
+2. add_workflow_step → Add steps (with actions like store_memory, search_memory, etc.)
+3. start_workflow → Engine executes steps sequentially
+   ├── Before each step: automatic memory context lookup
+   ├── Execute: step action via internal tool dispatch
+   ├── After: record experience for learning
+   └── Variables: results can be stored and reused in subsequent steps
+4. pause_workflow → Pause mid-execution
+5. resume_workflow → Continue from where paused
+6. get_workflow_status → Check current state
+7. cancel_workflow / delete_workflow → Cleanup
+```
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Variable Substitution** | Step results can be stored as variables and referenced in later steps |
+| **Automatic Memory Context** | Before each step, relevant memories are retrieved automatically |
+| **Experience Recording** | After each step, the outcome is recorded as an experience for learning |
+| **Pause/Resume** | Workflows can be paused and resumed mid-execution |
+| **Action Dispatch** | Steps can invoke any internal tool (memory, experience, reflection, etc.) |
 
 ---
 

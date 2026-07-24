@@ -1,4 +1,5 @@
 // robot/src/experience/reflection/reflection.rs
+#![allow(dead_code)]
 
 // Proposed structure
 //    ├── metadata
@@ -18,7 +19,7 @@ use super::{ReflectionConfidence, ReflectionMetadata, ReflectionStatus, Reflecti
 /// Type alias for experience ID
 pub type ExperienceId = String;
 
-/// Type alias for evidence ID  
+/// Type alias for evidence ID
 pub type EvidenceId = String;
 
 /// Type alias for insight ID

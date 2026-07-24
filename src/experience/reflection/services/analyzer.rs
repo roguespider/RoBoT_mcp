@@ -1,5 +1,6 @@
 // /src/experience/reflection/services/analyzer.rs
 // Analyzes experiences to identify patterns, themes, and insights
+#![allow(dead_code)]
 
 use crate::experience::types::{Experience, ExperienceType};
 use super::super::Reflection;
