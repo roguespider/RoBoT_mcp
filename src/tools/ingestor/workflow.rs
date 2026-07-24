@@ -17,11 +17,15 @@ use super::DeleteIngestedFilesInput;
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Check if a directory is empty (contains no files or subdirectories)
+/// Check if a directory is empty (contains no files, subdirectories, or any entries)
+/// Returns true ONLY if the folder is completely empty
 fn is_dir_empty(dir: &Path) -> bool {
     if let Ok(mut entries) = fs::read_dir(dir) {
+        // Check if there are ANY entries (files or subdirectories)
+        // If entries.next() returns Some, the folder is NOT empty
         entries.next().is_none()
     } else {
+        // If we can't read the directory, assume it's not empty (safer)
         false
     }
 }
@@ -312,9 +316,9 @@ pub async fn execute_delete_ingested_files(
             "failed": failed,
             "failed_count": failed_count,
             "message": if success > 0 && failed_count == 0 {
-                format!("SUCCESS: Deleted {} file(s). {} empty folder(s) now available for deletion.", success, empty_folders.len())
+                format!("SUCCESS: Deleted {} file(s). {} EMPTY folder(s) (no files remaining) now available for deletion.", success, empty_folders.len())
             } else if success > 0 && failed_count > 0 {
-                format!("PARTIAL: Deleted {} file(s), {} failed. {} empty folder(s) now available.", success, failed_count, empty_folders.len())
+                format!("PARTIAL: Deleted {} file(s), {} failed. {} EMPTY folder(s) (no files remaining) now available.", success, failed_count, empty_folders.len())
             } else {
                 "No files were deleted.".to_string()
             },
@@ -325,10 +329,11 @@ pub async fn execute_delete_ingested_files(
             "empty_folders": empty_folders_str,
             "empty_folder_names": empty_folders_display,
             "empty_folder_count": empty_folders.len(),
-            "note": "Empty folders can be deleted to clean up. ASK USER first!",
+            "note": "Empty folders (with no files remaining) can be deleted to clean up. ASK USER first!",
             "tracker_cleared": success > 0,
-            "NEXT_ACTION": format!("ASK USER: 'I deleted the last file(s) from these folders: {:?}. Do you want to delete the empty folder(s) as well?'", empty_folders_display),
+            "NEXT_ACTION": format!("ASK USER: 'I deleted the last file(s) from these folders: {:?}. These folders are now COMPLETELY EMPTY (no files inside). Do you want to delete the empty folder(s) as well?'", empty_folders_display),
             "folder_deletion_workflow": {
+                "safety_check": "Folders are ONLY offered if completely empty (no files, no subdirectories)",
                 "scenario": "User wants to delete empty folders",
                 "step_1": "Use file_editor or bash to remove empty folders",
                 "step_2": "Note: Only delete folders INSIDE files_to_import, never the files_to_import folder itself",
