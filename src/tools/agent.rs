@@ -204,6 +204,12 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                     "action": "Delete original file only after user confirmation",
                     "parameters": {"confirmation": "yes"},
                     "description": "Use files from 'files_ready_for_deletion' in the ingest response. confirmation MUST be 'yes' (exactly)."
+                },
+                {
+                    "step": 8,
+                    "tool": "check response.empty_folders",
+                    "action": "After file deletion, check if any folders are now empty",
+                    "description": "If empty_folder_count > 0, ASK USER: 'Do you want to delete the empty folder(s)?'"
                 }
             ],
             "re_ingestion_workflow": {
@@ -223,8 +229,9 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                 "ALWAYS follow the NEXT_ACTION in ingest response",
                 "ALWAYS ask user before calling delete_ingested_files",
                 "ALWAYS ask user if files have already been ingested (use force=true if they confirm)",
+                "ALWAYS check for empty_folders after file deletion - ASK USER about folder cleanup",
                 "confirmation parameter MUST be exactly 'yes'",
-                "Folders are NOT deleted - only files",
+                "NEVER delete the files_to_import folder itself, only subfolders inside it",
                 "files_to_import is relative to executable location"
             ],
             "files_that_are_skipped": [
@@ -243,7 +250,9 @@ pub async fn execute_get_workflow(input: GetWorkflowInput) -> Result<ToolOutput,
                 "Using confirmation values other than 'yes'",
                 "Trying to delete folders instead of files",
                 "Forgetting to verify ingestion with search_memory",
-                "Forgetting to ask about re-ingestion when already_ingested_count > 0"
+                "Forgetting to ask about re-ingestion when already_ingested_count > 0",
+                "Forgetting to ask about folder cleanup when empty_folders > 0",
+                "Deleting the files_to_import folder itself (only delete subfolders)"
             ]
         }),
         

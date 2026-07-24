@@ -548,6 +548,7 @@ pub async fn ingest_file(
                     "step_1": "Call delete_ingested_files",
                     "step_2": "Use files from 'files_ready_for_deletion' list",
                     "step_3": "Set confirmation='yes'",
+                    "step_4": "Check response.empty_folders - if not empty, ASK USER about folder cleanup",
                     "example": {
                         "files": successfully_ingested,
                         "confirmation": "yes"
@@ -558,6 +559,12 @@ pub async fn ingest_file(
                     "note": "Files will NOT be offered again on next ingest_files call"
                 },
                 "files_pending_deletion": successfully_ingested.len()
+            },
+            "folder_cleanup": {
+                "note": "After file deletion, check delete_ingested_files response for empty_folders",
+                "scenario": "If empty_folders is not empty, folders are now empty and can be deleted",
+                "ask_user": "ASK USER: 'Do you want to delete the empty folder(s)?'",
+                "warning": "Only delete folders INSIDE files_to_import, never the files_to_import folder itself"
             },
             "timeout_occurred": timeout_occurred,
             "timeout_help": if timeout_occurred {
