@@ -361,7 +361,7 @@ pub async fn ingest_file(
             .partition(|f| f.skip_reason.is_some());
         
         // Check for already-ingested files and separate them
-        let ingest_tracker = get_ingest_tracker().try_lock();
+        let ingest_tracker = get_ingest_tracker().try_lock().ok();
         let (already_ingested, files_to_process): (Vec<_>, Vec<_>) = files_to_check
             .into_iter()
             .partition(|f| {
@@ -405,6 +405,7 @@ pub async fn ingest_file(
                             file_path: file_info.path.clone(),
                             success: false,
                             chunks_created: 0,
+                            chunk_size_used: chunk_size,
                             memory_ids: vec![],
                             error: Some(e.to_string()),
                             remaining_count: 0,
@@ -419,6 +420,7 @@ pub async fn ingest_file(
                             file_path: file_info.path.clone(),
                             success: false,
                             chunks_created: 0,
+                            chunk_size_used: chunk_size,
                             memory_ids: vec![],
                             error: Some(format!("Ingestion timed out after {} seconds. Try increasing timeout_seconds.", timeout_secs)),
                             remaining_count: 0,
@@ -451,6 +453,7 @@ pub async fn ingest_file(
                             file_path: file_info.path.clone(),
                             success: false,
                             chunks_created: 0,
+                            chunk_size_used: chunk_size,
                             memory_ids: vec![],
                             error: Some(e.to_string()),
                             remaining_count: 0,
@@ -465,6 +468,7 @@ pub async fn ingest_file(
                             file_path: file_info.path.clone(),
                             success: false,
                             chunks_created: 0,
+                            chunk_size_used: chunk_size,
                             memory_ids: vec![],
                             error: Some(format!("Ingestion timed out after {} seconds. Try increasing timeout_seconds.", timeout_secs)),
                             remaining_count: 0,
@@ -545,9 +549,9 @@ pub async fn ingest_file(
                 // All files were already ingested - ask user if they want to re-ingest
                 serde_json::json!("ASK USER: 'The following files have already been added to memory: {:?}. Do you want to add them again?'. If YES, use force=true parameter.".replace("{:?}", &format!("{:?}", already_ingested_filenames)))
             } else if successfully_ingested.is_empty() {
-                "No action needed - no files were successfully ingested."
+                serde_json::json!("No action needed - no files were successfully ingested.")
             } else {
-                "ASK USER: 'I successfully ingested the file(s). Can I delete the original file(s) to save space?'"
+                serde_json::json!("ASK USER: 'I successfully ingested the file(s). Can I delete the original file(s) to save space?'")
             },
             "deletion_workflow": {
                 "if_user_says_yes": {
@@ -610,6 +614,7 @@ async fn ingest_archive(
             file_path: path.to_string_lossy().to_string(),
             success: false,
             chunks_created: 0,
+            chunk_size_used: chunk_size,
             memory_ids: vec![],
             error: Some("Archive is empty".to_string()),
             remaining_count: 0,
@@ -632,6 +637,7 @@ async fn ingest_archive(
         file_path: path.to_string_lossy().to_string(),
         success: result.success,
         chunks_created: result.chunks_created,
+        chunk_size_used: result.chunk_size_used,
         memory_ids: result.memory_ids,
         error: result.error,
         remaining_count,

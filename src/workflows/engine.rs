@@ -571,6 +571,8 @@ impl WorkflowEngine {
                     chunk_size: params.get("chunk_size").and_then(|s| s.parse().ok()),
                     memory_type: params.get("memory_type").cloned(),
                     timeout_seconds: params.get("timeout_seconds").and_then(|s| s.parse().ok()),
+                    recursive: params.get("recursive").and_then(|s| s.parse().ok()),
+                    force: params.get("force").and_then(|s| s.parse().ok()),
                 };
 
                 if let Some(db) = &self.database {
